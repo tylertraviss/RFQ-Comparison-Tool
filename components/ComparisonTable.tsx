@@ -30,17 +30,11 @@ function buildRows(results: SupplierResult[]): ComparisonRow[] {
   return Array.from(partMap.values())
 }
 
-function fmt(val: number | null | undefined, prefix = '') {
-  if (val == null) return <span style={{ color: '#64748b' }}>—</span>
-  return `${prefix}${val.toLocaleString()}`
-}
-
 export default function ComparisonTable({ results, onSave, onCSV, saving, saved }: Props) {
   const suppliers = results.map((r) => r.supplier)
   const rows = buildRows(results)
   const scores = computeBestValueScores(results)
 
-  // Per-row: find min price index and min lead time index
   function minPriceSupplier(row: ComparisonRow): string | null {
     let min = Infinity
     let winner = null
@@ -51,7 +45,6 @@ export default function ComparisonTable({ results, onSave, onCSV, saving, saved 
     return winner
   }
 
-  // Lead time: use per-supplier average since it's a session-level metric
   const minLeadScore = scores.reduce<string | null>((best, s) => {
     if (s.avgLeadTime == null) return best
     if (best === null) return s.supplier
@@ -62,49 +55,46 @@ export default function ComparisonTable({ results, onSave, onCSV, saving, saved 
   const maxScore = Math.max(...scores.map((s) => s.score))
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <span
-          className="text-xs font-semibold tracking-widest uppercase"
-          style={{ color: '#64748b' }}
-        >
+        <h2 className="font-semibold text-base" style={{ color: '#0f172a' }}>
           Comparison Results
-        </span>
+        </h2>
         <div className="flex gap-2">
           <button
             onClick={onSave}
             disabled={saving || saved}
-            className="px-4 py-2 rounded text-sm font-semibold border transition-colors"
+            className="px-4 py-2 rounded-lg text-sm font-semibold border transition-colors"
             style={{
-              background: saved ? '#16a34a22' : '#111827',
-              borderColor: saved ? '#16a34a' : '#1e293b',
-              color: saved ? '#16a34a' : '#f1f5f9',
+              background: saved ? '#f0fdf4' : '#ffffff',
+              borderColor: saved ? '#86efac' : '#e2e8f0',
+              color: saved ? '#16a34a' : '#0f172a',
             }}
           >
-            {saved ? 'Session saved ✓' : saving ? 'Saving...' : '💾 Save'}
+            {saved ? 'Saved ✓' : saving ? 'Saving...' : 'Save Session'}
           </button>
           <button
             onClick={onCSV}
-            className="px-4 py-2 rounded text-sm font-semibold border transition-colors"
-            style={{ background: '#111827', borderColor: '#1e293b', color: '#f1f5f9' }}
+            className="px-4 py-2 rounded-lg text-sm font-semibold border transition-colors"
+            style={{ background: '#ffffff', borderColor: '#e2e8f0', color: '#0f172a' }}
           >
-            CSV
+            Export CSV
           </button>
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border" style={{ borderColor: '#1e293b' }}>
+      <div className="overflow-x-auto rounded-xl border" style={{ borderColor: '#e2e8f0' }}>
         <table className="w-full text-sm border-collapse">
           <thead>
-            <tr style={{ background: '#0a0e1a' }}>
+            <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
               <th
-                className="sticky left-0 px-4 py-3 text-left font-semibold tracking-widest uppercase text-xs"
-                style={{ background: '#0a0e1a', color: '#64748b', borderRight: '1px solid #1e293b' }}
+                className="sticky left-0 px-4 py-3 text-left font-semibold text-xs tracking-widest uppercase"
+                style={{ background: '#f8fafc', color: '#64748b', borderRight: '1px solid #e2e8f0' }}
               >
                 Part #
               </th>
               <th
-                className="px-4 py-3 text-left font-semibold tracking-widest uppercase text-xs"
+                className="px-4 py-3 text-left font-semibold text-xs tracking-widest uppercase"
                 style={{ color: '#64748b' }}
               >
                 Description
@@ -112,7 +102,7 @@ export default function ComparisonTable({ results, onSave, onCSV, saving, saved 
               {suppliers.map((s) => (
                 <th
                   key={s}
-                  className="px-4 py-3 text-right font-semibold tracking-widest uppercase text-xs"
+                  className="px-4 py-3 text-right font-semibold text-xs tracking-widest uppercase"
                   style={{ color: '#64748b' }}
                 >
                   {s}
@@ -126,20 +116,23 @@ export default function ComparisonTable({ results, onSave, onCSV, saving, saved 
               return (
                 <tr
                   key={row.part_number}
-                  style={{ borderTop: '1px solid #1e293b', background: i % 2 === 0 ? '#111827' : '#0f172a' }}
+                  style={{
+                    borderTop: '1px solid #e2e8f0',
+                    background: i % 2 === 0 ? '#ffffff' : '#f8fafc',
+                  }}
                 >
                   <td
                     className="sticky left-0 px-4 py-3 font-mono text-xs font-semibold"
                     style={{
-                      background: i % 2 === 0 ? '#111827' : '#0f172a',
-                      color: '#f1f5f9',
-                      borderRight: '1px solid #1e293b',
+                      background: i % 2 === 0 ? '#ffffff' : '#f8fafc',
+                      color: '#0f172a',
+                      borderRight: '1px solid #e2e8f0',
                     }}
                   >
                     {row.part_number}
                   </td>
-                  <td className="px-4 py-3" style={{ color: '#94a3b8' }}>
-                    {row.description ?? <span style={{ color: '#64748b' }}>—</span>}
+                  <td className="px-4 py-3" style={{ color: '#475569' }}>
+                    {row.description ?? <span style={{ color: '#cbd5e1' }}>—</span>}
                   </td>
                   {suppliers.map((s) => {
                     const item = row.suppliers[s]
@@ -149,14 +142,14 @@ export default function ComparisonTable({ results, onSave, onCSV, saving, saved 
                         key={s}
                         className="px-4 py-3 text-right font-mono"
                         style={{
-                          background: isLowest ? '#16a34a' : 'transparent',
-                          color: isLowest ? '#ffffff' : '#f1f5f9',
+                          background: isLowest ? '#f0fdf4' : 'transparent',
+                          color: isLowest ? '#16a34a' : '#0f172a',
                           fontWeight: isLowest ? 700 : 400,
                         }}
                       >
                         {item?.unit_price != null
                           ? `$${item.unit_price.toFixed(2)}`
-                          : <span style={{ color: '#64748b' }}>—</span>}
+                          : <span style={{ color: '#cbd5e1' }}>—</span>}
                       </td>
                     )
                   })}
@@ -165,14 +158,14 @@ export default function ComparisonTable({ results, onSave, onCSV, saving, saved 
             })}
 
             {/* Lead time row */}
-            <tr style={{ borderTop: '2px solid #1e293b', background: '#0a0e1a' }}>
+            <tr style={{ borderTop: '2px solid #e2e8f0', background: '#f8fafc' }}>
               <td
                 className="sticky left-0 px-4 py-3 text-xs font-semibold uppercase tracking-widest"
-                style={{ background: '#0a0e1a', color: '#64748b', borderRight: '1px solid #1e293b' }}
+                style={{ background: '#f8fafc', color: '#64748b', borderRight: '1px solid #e2e8f0' }}
               >
                 Lead Time
               </td>
-              <td style={{ color: '#64748b' }} className="px-4 py-3 text-xs">Avg across items</td>
+              <td className="px-4 py-3 text-xs" style={{ color: '#94a3b8' }}>Avg across items</td>
               {scores.map((s) => {
                 const isFastest = s.supplier === minLeadScore && s.avgLeadTime != null
                 return (
@@ -180,39 +173,45 @@ export default function ComparisonTable({ results, onSave, onCSV, saving, saved 
                     key={s.supplier}
                     className="px-4 py-3 text-right font-mono text-sm"
                     style={{
-                      background: isFastest ? '#0284c7' : 'transparent',
-                      color: isFastest ? '#ffffff' : '#f1f5f9',
+                      background: isFastest ? '#eff6ff' : 'transparent',
+                      color: isFastest ? '#2563eb' : '#0f172a',
                       fontWeight: isFastest ? 700 : 400,
                     }}
                   >
                     {s.avgLeadTime != null
                       ? `${Math.round(s.avgLeadTime)} days`
-                      : <span style={{ color: '#64748b' }}>—</span>}
+                      : <span style={{ color: '#cbd5e1' }}>—</span>}
                   </td>
                 )
               })}
             </tr>
 
-            {/* Best value score row */}
-            <tr style={{ borderTop: '1px solid #1e293b', background: '#0a0e1a' }}>
+            {/* Best value row */}
+            <tr style={{ borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
               <td
                 className="sticky left-0 px-4 py-3 text-xs font-semibold uppercase tracking-widest"
-                style={{ background: '#0a0e1a', color: '#64748b', borderRight: '1px solid #1e293b' }}
+                style={{ background: '#f8fafc', color: '#64748b', borderRight: '1px solid #e2e8f0' }}
               >
                 Best Value
               </td>
-              <td style={{ color: '#64748b' }} className="px-4 py-3 text-xs">Weighted score (0–100)</td>
+              <td className="px-4 py-3 text-xs" style={{ color: '#94a3b8' }}>Weighted score (0–100)</td>
               {scores.map((s) => {
                 const isTop = s.score === maxScore
                 return (
                   <td
                     key={s.supplier}
                     className="px-4 py-3 text-right font-mono font-bold text-sm"
-                    style={{
-                      color: isTop ? '#2563eb' : '#f1f5f9',
-                    }}
+                    style={{ color: isTop ? '#0f172a' : '#64748b' }}
                   >
-                    {s.score} pts
+                    <span
+                      className="px-2 py-1 rounded-md text-xs"
+                      style={{
+                        background: isTop ? '#0f172a' : '#f1f5f9',
+                        color: isTop ? '#ffffff' : '#64748b',
+                      }}
+                    >
+                      {s.score} pts
+                    </span>
                   </td>
                 )
               })}

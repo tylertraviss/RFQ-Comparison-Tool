@@ -15,10 +15,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="h-full">
       <body
         className={`${inter.className} min-h-full flex flex-col`}
-        style={{ background: '#0a0e1a', color: '#f1f5f9' }}
+        style={{ background: '#ffffff', color: '#0f172a' }}
       >
         <Navbar />
-        <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
+        <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-10">
           {children}
         </main>
       </body>
