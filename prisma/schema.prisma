@@ -1,0 +1,36 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model RFQSession {
+  id        String          @id @default(cuid())
+  name      String
+  createdAt DateTime        @default(now())
+  quotes    SupplierQuote[]
+}
+
+model SupplierQuote {
+  id           String      @id @default(cuid())
+  sessionId    String
+  session      RFQSession  @relation(fields: [sessionId], references: [id])
+  supplierName String
+  rawText      String
+  lineItems    LineItem[]
+}
+
+model LineItem {
+  id           String        @id @default(cuid())
+  quoteId      String
+  quote        SupplierQuote @relation(fields: [quoteId], references: [id])
+  partNumber   String
+  description  String?
+  quantity     Float?
+  unitPrice    Float?
+  leadTimeDays Int?
+  notes        String?
+}
