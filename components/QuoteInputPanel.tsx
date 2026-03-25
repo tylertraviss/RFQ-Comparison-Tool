@@ -24,12 +24,12 @@ export default function QuoteInputPanel({
 }: Props) {
   return (
     <div
-      className="flex flex-col gap-3 rounded-lg p-4 border"
-      style={{ background: '#111827', borderColor: '#1e293b' }}
+      className="flex flex-col gap-3 rounded-xl p-4 border"
+      style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}
     >
       <div
         className="text-xs font-semibold tracking-widest uppercase"
-        style={{ color: '#64748b' }}
+        style={{ color: '#94a3b8' }}
       >
         {LABELS[index]}
       </div>
@@ -39,11 +39,11 @@ export default function QuoteInputPanel({
         value={supplierName}
         onChange={(e) => onSupplierChange(e.target.value)}
         placeholder={PLACEHOLDERS[index]}
-        className="w-full rounded px-3 py-2 text-sm border outline-none focus:border-blue-500 transition-colors"
+        className="w-full rounded-lg px-3 py-2 text-sm border outline-none focus:border-slate-400 transition-colors"
         style={{
-          background: '#0a0e1a',
-          borderColor: '#1e293b',
-          color: '#f1f5f9',
+          background: '#ffffff',
+          borderColor: '#e2e8f0',
+          color: '#0f172a',
         }}
       />
 
@@ -53,16 +53,16 @@ export default function QuoteInputPanel({
           onChange={(e) => onTextChange(e.target.value)}
           placeholder="Paste raw quote — email, PDF text, or table..."
           rows={12}
-          className="w-full rounded px-3 py-2 text-sm font-mono border outline-none focus:border-blue-500 transition-colors resize-none"
+          className="w-full rounded-lg px-3 py-2 text-sm font-mono border outline-none focus:border-slate-400 transition-colors resize-none"
           style={{
-            background: '#0a0e1a',
-            borderColor: '#1e293b',
-            color: '#f1f5f9',
+            background: '#ffffff',
+            borderColor: '#e2e8f0',
+            color: '#0f172a',
           }}
         />
         <span
           className="absolute bottom-2 right-3 text-xs"
-          style={{ color: '#64748b' }}
+          style={{ color: '#94a3b8' }}
         >
           {rawText.length.toLocaleString()} chars
         </span>

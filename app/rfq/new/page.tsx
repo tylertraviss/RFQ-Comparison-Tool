@@ -147,7 +147,7 @@ export default function NewRFQPage() {
           onChange={(e) => setSessionName(e.target.value)}
           placeholder="e.g. F-35 Bearing Order — Q2 2026"
           className="w-full rounded-lg px-4 py-3 text-sm border outline-none focus:border-blue-500 transition-colors"
-          style={{ background: '#111827', borderColor: '#1e293b', color: '#f1f5f9' }}
+          style={{ background: '#ffffff', borderColor: '#e2e8f0', color: '#0f172a' }}
         />
       </div>
 
@@ -171,7 +171,7 @@ export default function NewRFQPage() {
       {error && (
         <div
           className="rounded-lg px-4 py-3 text-sm border"
-          style={{ background: '#7f1d1d22', borderColor: '#ef4444', color: '#fca5a5' }}
+          style={{ background: '#fef2f2', borderColor: '#fca5a5', color: '#dc2626' }}
         >
           {error}
         </div>
