@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import QuoteInputPanel from '@/components/QuoteInputPanel'
 import AnalyzeButton from '@/components/AnalyzeButton'
 import ComparisonTable from '@/components/ComparisonTable'
+import NegotiationSummary from '@/components/NegotiationSummary'
+import type { Intel } from '@/components/NegotiationSummary'
 import type { SupplierResult } from '@/types/quote'
 
 interface PanelState {
@@ -27,9 +29,12 @@ export default function NewRFQPage() {
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [intel, setIntel] = useState<Intel | null>(null)
+  const [summaryLoading, setSummaryLoading] = useState(false)
 
   const filledPanels = panels.filter((p) => p.rawText.trim().length > 0)
   const canAnalyze = filledPanels.length >= 2
+  const showResults = results !== null
 
   function updatePanel(i: number, field: keyof PanelState, value: string) {
     setPanels((prev) => {
@@ -43,6 +48,7 @@ export default function NewRFQPage() {
     setLoading(true)
     setError(null)
     setResults(null)
+    setIntel(null)
 
     try {
       const quotes = panels
@@ -61,6 +67,17 @@ export default function NewRFQPage() {
       if (!res.ok) throw new Error('Extraction failed')
       const data = await res.json()
       setResults(data.results)
+
+      setSummaryLoading(true)
+      fetch('/api/summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ results: data.results }),
+      })
+        .then((r) => r.json())
+        .then((d) => setIntel(d))
+        .catch(() => setIntel(null))
+        .finally(() => setSummaryLoading(false))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error')
     } finally {
@@ -107,17 +124,11 @@ export default function NewRFQPage() {
 
     const header = ['Part #', 'Description', ...suppliers].join(',')
     const rows = Array.from(allParts).map((part) => {
-      const desc = results
-        .flatMap((r) => r.line_items)
-        .find((li) => li.part_number === part)?.description ?? ''
-
+      const desc = results.flatMap((r) => r.line_items).find((li) => li.part_number === part)?.description ?? ''
       const prices = suppliers.map((s) => {
-        const item = results
-          .find((r) => r.supplier === s)
-          ?.line_items.find((li) => li.part_number === part)
+        const item = results.find((r) => r.supplier === s)?.line_items.find((li) => li.part_number === part)
         return item?.unit_price != null ? `$${item.unit_price}` : ''
       })
-
       return [part, desc, ...prices].map((v) => `"${v}"`).join(',')
     })
 
@@ -131,9 +142,51 @@ export default function NewRFQPage() {
     URL.revokeObjectURL(url)
   }
 
+  // ── Results view ──────────────────────────────────────────────
+  if (showResults) {
+    return (
+      <div className="flex flex-col gap-8">
+        {/* Back + session name */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => { setResults(null); setIntel(null) }}
+            className="text-sm flex items-center gap-1 transition-colors"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            ← Back to quotes
+          </button>
+          <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
+            {sessionName || 'Untitled RFQ Session'}
+          </span>
+        </div>
+
+        {/* Intel brief — top */}
+        <NegotiationSummary intel={intel} loading={summaryLoading} />
+
+        {/* Comparison table — below */}
+        <ComparisonTable
+          results={results}
+          onSave={handleSave}
+          onCSV={handleCSV}
+          saving={saving}
+          saved={saved}
+        />
+
+        {error && (
+          <div
+            className="rounded-lg px-4 py-3 text-sm border"
+            style={{ background: '#fef2f2', borderColor: '#fca5a5', color: '#dc2626' }}
+          >
+            {error}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── Input view ────────────────────────────────────────────────
   return (
     <div className="flex flex-col gap-8">
-      {/* Session name */}
       <div className="flex flex-col gap-2">
         <label
           className="text-xs font-semibold tracking-widest uppercase"
@@ -151,7 +204,6 @@ export default function NewRFQPage() {
         />
       </div>
 
-      {/* Quote panels */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {panels.map((panel, i) => (
           <QuoteInputPanel
@@ -165,7 +217,6 @@ export default function NewRFQPage() {
         ))}
       </div>
 
-      {/* Analyze button */}
       <AnalyzeButton onClick={handleAnalyze} loading={loading} disabled={!canAnalyze} />
 
       {error && (
@@ -175,17 +226,6 @@ export default function NewRFQPage() {
         >
           {error}
         </div>
-      )}
-
-      {/* Results */}
-      {results && (
-        <ComparisonTable
-          results={results}
-          onSave={handleSave}
-          onCSV={handleCSV}
-          saving={saving}
-          saved={saved}
-        />
       )}
     </div>
   )
