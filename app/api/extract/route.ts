@@ -7,7 +7,7 @@ const client = new Anthropic()
 
 function parseJSON(text: string): LineItem[] {
   // Strip markdown code blocks if Claude wraps the response
-  const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim()
+  const cleaned = text.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
   return JSON.parse(cleaned)
 }
 

@@ -36,6 +36,7 @@ Return ONLY valid JSON. No markdown. No preamble.
   const content = message.content[0]
   if (content.type !== 'text') throw new Error('Unexpected response')
 
-  const intel = JSON.parse(content.text)
+  const cleaned = content.text.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim()
+  const intel = JSON.parse(cleaned)
   return NextResponse.json(intel)
 }

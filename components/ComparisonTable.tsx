@@ -61,22 +61,6 @@ export default function ComparisonTable({ results }: Props) {
   const rows = buildRows(results)
   const scores = computeBestValueScores(results)
 
-  // Build chart data — one entry per part number, sorted by max price descending
-  const chartData = rows.map((row) => {
-    const entry: Record<string, any> = {
-      part: row.description ?? row.part_number,
-      description: row.description,
-    }
-    suppliers.forEach((s) => {
-      entry[s] = row.suppliers[s]?.unit_price ?? null
-    })
-    return entry
-  }).sort((a, b) => {
-    const maxA = Math.max(...suppliers.map((s) => a[s] ?? 0))
-    const maxB = Math.max(...suppliers.map((s) => b[s] ?? 0))
-    return maxB - maxA
-  })
-
   // Find lowest price supplier per part for coloring
   function lowestSupplier(row: ComparisonRow): string | null {
     let min = Infinity, winner = null
@@ -87,93 +71,94 @@ export default function ComparisonTable({ results }: Props) {
     return winner
   }
 
+  const maxScore = Math.max(...scores.map((x) => x.score))
+
+  const SCORE_ICONS = [
+    // Trophy / winner
+    <svg key="trophy" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>,
+    // Middle
+    <svg key="mid" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>,
+    // Warning
+    <svg key="warn" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>,
+    <svg key="warn2" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>,
+  ]
+
   return (
     <div className="flex flex-col gap-6">
-      <h2 className="font-semibold text-base" style={{ color: 'var(--text)' }}>
-        Comparison Results
-      </h2>
 
-      {/* Grouped bar chart */}
-      <div
-        className="rounded-xl border p-6"
-        style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
-      >
-        <p className="text-xs font-semibold tracking-widest uppercase mb-4" style={{ color: 'var(--text-faint)' }}>
-          Unit Price by Part Number
-        </p>
-        <ResponsiveContainer width="100%" height={320}>
-          <BarChart data={chartData} barCategoryGap="25%" barGap={4}>
-            <CartesianGrid vertical={false} stroke="var(--border)" />
-            <XAxis
-              dataKey="part"
-              tick={{ fontSize: 11, fontFamily: 'monospace', fill: 'var(--text-muted)' }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              tickFormatter={(v) => `$${v}`}
-              tick={{ fontSize: 11, fill: 'var(--text-muted)' }}
-              axisLine={false}
-              tickLine={false}
-              width={55}
-            />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--border)', opacity: 0.4 }} />
-            <Legend
-              wrapperStyle={{ fontSize: 12, color: 'var(--text-muted)', paddingTop: 16 }}
-            />
-            {suppliers.map((s, i) => (
-              <Bar key={s} dataKey={s} fill={SUPPLIER_COLORS[i % SUPPLIER_COLORS.length]} radius={[4, 4, 0, 0]}>
-                {chartData.map((entry, j) => {
-                  const row = rows[j]
-                  const isLowest = lowestSupplier(row) === s && entry[s] != null
-                  return (
-                    <Cell
-                      key={j}
-                      fill={isLowest ? '#16a34a' : SUPPLIER_COLORS[i % SUPPLIER_COLORS.length]}
-                    />
-                  )
-                })}
-              </Bar>
-            ))}
-          </BarChart>
-        </ResponsiveContainer>
-        <p className="text-xs mt-2" style={{ color: 'var(--text-faint)' }}>
-          Green bar = lowest price for that part
-        </p>
+      {/* Section header */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--text-faint)' }}>
+          Comparison Results
+        </span>
+        <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
       </div>
 
-      {/* Best value scores */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {scores.map((s, i) => {
-          const maxScore = Math.max(...scores.map((x) => x.score))
-          const isTop = s.score === maxScore
+      {/* One mini chart per part */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {rows.map((row) => {
+          const lowest = lowestSupplier(row)
+          const chartData = suppliers
+            .filter((s) => row.suppliers[s]?.unit_price != null)
+            .map((s, i) => ({
+              supplier: s,
+              price: row.suppliers[s]!.unit_price,
+              fill: lowest === s ? '#16a34a' : SUPPLIER_COLORS[i % SUPPLIER_COLORS.length],
+            }))
+
           return (
             <div
-              key={s.supplier}
-              className="rounded-xl border px-5 py-4 flex items-center justify-between"
-              style={{
-                background: isTop ? 'var(--highlight-blue)' : 'var(--bg-surface)',
-                borderColor: isTop ? 'var(--highlight-blue-text)' : 'var(--border)',
-              }}
+              key={row.part_number}
+              className="rounded-xl border p-4 flex flex-col gap-2"
+              style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
             >
-              <div className="flex flex-col gap-0.5">
-                <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>
-                  {s.supplier}
-                </span>
-                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                  Avg ${s.avgPrice?.toFixed(2) ?? '—'} · {s.avgLeadTime ? `${Math.round(s.avgLeadTime)}d` : '—'}
-                </span>
-              </div>
-              <div className="flex flex-col items-end">
-                <span className="text-xl font-bold" style={{ color: isTop ? 'var(--highlight-blue-text)' : 'var(--text)' }}>
-                  {s.score}
-                </span>
-                <span className="text-xs" style={{ color: 'var(--text-faint)' }}>best value</span>
-              </div>
+              <p className="text-xs font-semibold truncate" style={{ color: 'var(--text)' }} title={row.description ?? row.part_number}>
+                {row.description ?? row.part_number}
+              </p>
+              <p className="text-xs font-mono" style={{ color: 'var(--text-faint)' }}>{row.part_number}</p>
+              <ResponsiveContainer width="100%" height={120}>
+                <BarChart data={chartData} barCategoryGap="30%" margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                  <CartesianGrid vertical={false} stroke="var(--border)" />
+                  <XAxis
+                    dataKey="supplier"
+                    tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tickFormatter={(v) => `$${v}`}
+                    tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={48}
+                  />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--border)', opacity: 0.4 }} />
+                  <Bar dataKey="price" radius={[4, 4, 0, 0]}>
+                    {chartData.map((entry, i) => (
+                      <Cell key={i} fill={entry.fill} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           )
         })}
       </div>
+
     </div>
   )
 }
