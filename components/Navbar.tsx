@@ -26,6 +26,14 @@ export default function Navbar() {
             Defense Distributor Intelligence
           </span>
 
+          <Link
+            href="/contracts"
+            className="text-sm font-semibold no-underline transition-opacity hover:opacity-70"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            Contracts
+          </Link>
+
           {/* Theme toggle */}
           <button
             onClick={toggle}
