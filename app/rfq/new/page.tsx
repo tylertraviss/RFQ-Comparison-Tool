@@ -137,7 +137,7 @@ export default function NewRFQPage() {
       <div className="flex flex-col gap-2">
         <label
           className="text-xs font-semibold tracking-widest uppercase"
-          style={{ color: '#64748b' }}
+          style={{ color: 'var(--text-muted)' }}
         >
           RFQ Session Name
         </label>
@@ -146,8 +146,8 @@ export default function NewRFQPage() {
           value={sessionName}
           onChange={(e) => setSessionName(e.target.value)}
           placeholder="e.g. F-35 Bearing Order — Q2 2026"
-          className="w-full rounded-lg px-4 py-3 text-sm border outline-none focus:border-blue-500 transition-colors"
-          style={{ background: '#ffffff', borderColor: '#e2e8f0', color: '#0f172a' }}
+          className="w-full rounded-lg px-4 py-3 text-sm border outline-none transition-colors"
+          style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--text)' }}
         />
       </div>
 

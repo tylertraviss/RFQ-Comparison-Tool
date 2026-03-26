@@ -39,13 +39,13 @@ export default async function RFQSessionPage({
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: '#64748b' }}>
+          <div className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: 'var(--text-muted)' }}>
             RFQ Session
           </div>
-          <h1 className="text-2xl font-bold" style={{ color: '#f1f5f9' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text)' }}>
             {session.name}
           </h1>
-          <p className="mt-1 text-sm" style={{ color: '#64748b' }}>
+          <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>
             {session.quotes.length} supplier{session.quotes.length !== 1 ? 's' : ''} ·{' '}
             {new Date(session.createdAt).toLocaleDateString('en-US', {
               month: 'long',
