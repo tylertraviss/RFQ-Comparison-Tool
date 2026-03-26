@@ -10,9 +10,6 @@ export default function Navbar() {
     <nav className="w-full border-b" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 no-underline">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M12 2L4 7v10l8 5 8-5V7L12 2z" fill="var(--text)" />
-          </svg>
           <span className="font-bold text-lg tracking-tight" style={{ color: 'var(--text)' }}>
             SalesPatriot
           </span>

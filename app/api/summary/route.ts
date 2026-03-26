@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
   const message = await client.messages.create({
     model: 'claude-opus-4-6',
-    max_tokens: 800,
+    max_tokens: 1200,
     messages: [{
       role: 'user',
       content: `You are a defense procurement analyst. Analyze these supplier quotes. Return a JSON object with three fields, each an array of exactly 3 bullet strings. Each bullet must be a single compact phrase under 12 words. No full sentences. Be specific and cite numbers.

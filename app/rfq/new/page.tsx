@@ -64,8 +64,8 @@ export default function NewRFQPage() {
         body: JSON.stringify({ quotes }),
       })
 
-      if (!res.ok) throw new Error('Extraction failed')
       const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Extraction failed')
       setResults(data.results)
 
       setSummaryLoading(true)

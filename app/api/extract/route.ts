@@ -5,10 +5,16 @@ import type { LineItem, SupplierResult } from '@/types/quote'
 
 const client = new Anthropic()
 
+function parseJSON(text: string): LineItem[] {
+  // Strip markdown code blocks if Claude wraps the response
+  const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim()
+  return JSON.parse(cleaned)
+}
+
 async function extractQuote(supplier: string, rawText: string): Promise<SupplierResult> {
   const message = await client.messages.create({
     model: 'claude-opus-4-6',
-    max_tokens: 2048,
+    max_tokens: 8096,
     messages: [
       {
         role: 'user',
@@ -20,7 +26,7 @@ async function extractQuote(supplier: string, rawText: string): Promise<Supplier
   const content = message.content[0]
   if (content.type !== 'text') throw new Error('Unexpected response type')
 
-  const line_items: LineItem[] = JSON.parse(content.text)
+  const line_items: LineItem[] = parseJSON(content.text)
   return { supplier, line_items }
 }
 
@@ -40,7 +46,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ results })
   } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Extraction failed' }, { status: 500 })
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('Extraction error:', message)
+    return NextResponse.json({ error: `Extraction failed: ${message}` }, { status: 500 })
   }
 }
