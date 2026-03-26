@@ -66,10 +66,15 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 function BidModal({ target, onClose }: { target: BidTarget; onClose: () => void }) {
   const [markup, setMarkup] = useState(18)
   const [leadTime, setLeadTime] = useState(String(target.leadTime ?? ''))
+  const [qty, setQty] = useState('1')
 
   const unitCost = target.unitCost
   const unitSell = unitCost * (1 + markup / 100)
   const unitProfit = unitSell - unitCost
+  const qtyNum = Math.max(1, parseInt(qty) || 1)
+  const totalCost = unitCost * qtyNum
+  const totalSell = unitSell * qtyNum
+  const totalProfit = unitProfit * qtyNum
 
   // Scale green from muted (low markup) to vivid (high markup)
   const greenIntensity = Math.round(100 + (markup / 30) * 155) // 100–255
@@ -133,43 +138,62 @@ function BidModal({ target, onClose }: { target: BidTarget; onClose: () => void 
             <div className="flex flex-col gap-2 text-sm">
               <div className="flex justify-between">
                 <span style={{ color: 'var(--text-muted)' }}>Cost:</span>
-                <span style={{ color: 'var(--text)' }}>${unitCost.toFixed(2)}</span>
+                <div className="flex flex-col items-end">
+                  <span style={{ color: 'var(--text)' }}>${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="text-xs" style={{ color: 'var(--text-faint)' }}>${unitCost.toFixed(2)}/unit</span>
+                </div>
               </div>
               <div className="flex justify-between">
                 <span style={{ color: 'var(--text-muted)' }}>Sale:</span>
-                <span style={{ color: 'var(--text)' }}>${unitSell.toFixed(2)}</span>
+                <div className="flex flex-col items-end">
+                  <span style={{ color: 'var(--text)' }}>${totalSell.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="text-xs" style={{ color: 'var(--text-faint)' }}>${unitSell.toFixed(2)}/unit</span>
+                </div>
               </div>
               <div className="flex justify-between font-bold border-t pt-2" style={{ borderColor: 'var(--border)' }}>
                 <span style={{ color: 'var(--text)' }}>Profit:</span>
-                <span style={{ color: profitColor }}>${unitProfit.toFixed(2)}</span>
+                <div className="flex flex-col items-end">
+                  <span style={{ color: profitColor }}>${totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="text-xs" style={{ color: 'var(--text-faint)' }}>${unitProfit.toFixed(2)}/unit</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Lead time */}
-        <div className="px-6 pb-5 border-t pt-5" style={{ borderColor: 'var(--border)' }}>
-          <h3 className="font-bold text-sm mb-1" style={{ color: 'var(--text)' }}>Confirm lead time</h3>
-          <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
-            {target.leadTime ? `Supplier quoted ${target.leadTime} days` : 'No lead time in quote'}
-          </p>
-          <div
-            className="rounded-xl p-4 flex items-center justify-center gap-3"
-            style={{ background: 'var(--highlight-blue)' }}
-          >
-            <input
-              type="number"
-              min={1}
-              value={leadTime}
-              onChange={(e) => setLeadTime(e.target.value)}
-              className="w-24 rounded-lg px-3 py-2 text-xl font-bold text-center border outline-none"
-              style={{
-                background: 'var(--bg)',
-                borderColor: 'var(--highlight-blue-text)',
-                color: 'var(--text)',
-              }}
-            />
-            <span className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>days</span>
+        {/* Lead time + Quantity */}
+        <div className="px-6 pb-5 border-t pt-5 grid grid-cols-2 gap-4" style={{ borderColor: 'var(--border)' }}>
+          <div>
+            <h3 className="font-bold text-sm mb-1" style={{ color: 'var(--text)' }}>Confirm lead time</h3>
+            <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+              {target.leadTime ? `Supplier quoted ${target.leadTime} days` : 'No lead time in quote'}
+            </p>
+            <div className="rounded-xl p-4 flex items-center justify-center gap-3" style={{ background: 'var(--highlight-blue)' }}>
+              <input
+                type="number"
+                min={1}
+                value={leadTime}
+                onChange={(e) => setLeadTime(e.target.value)}
+                className="w-20 rounded-lg px-3 py-2 text-xl font-bold text-center border outline-none"
+                style={{ background: 'var(--bg)', borderColor: 'var(--highlight-blue-text)', color: 'var(--text)' }}
+              />
+              <span className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>days</span>
+            </div>
+          </div>
+          <div>
+            <h3 className="font-bold text-sm mb-1" style={{ color: 'var(--text)' }}>Quantity</h3>
+            <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Units you intend to buy</p>
+            <div className="rounded-xl p-4 flex items-center justify-center gap-3" style={{ background: 'var(--highlight-blue)' }}>
+              <input
+                type="number"
+                min={1}
+                value={qty}
+                onChange={(e) => setQty(e.target.value)}
+                className="w-20 rounded-lg px-3 py-2 text-xl font-bold text-center border outline-none"
+                style={{ background: 'var(--bg)', borderColor: 'var(--highlight-blue-text)', color: 'var(--text)' }}
+              />
+              <span className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>EA</span>
+            </div>
           </div>
         </div>
 
@@ -184,9 +208,9 @@ function BidModal({ target, onClose }: { target: BidTarget; onClose: () => void 
             </p>
             <div className="grid grid-cols-3 gap-2 text-center">
               {[
-                { label: 'BUY FOR', value: `$${unitCost.toFixed(2)}`, sub: `$${unitCost.toFixed(2)}/unit`, color: 'var(--text)' },
-                { label: 'SELL FOR', value: `$${unitSell.toFixed(2)}`, sub: `$${unitSell.toFixed(2)}/unit`, color: 'var(--text)' },
-                { label: 'YOU MAKE', value: `$${unitProfit.toFixed(2)}`, sub: `${markup}% margin`, color: profitColor },
+                { label: 'BUY FOR', value: `$${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, sub: `$${unitCost.toFixed(2)}/unit`, color: 'var(--text)' },
+                { label: 'SELL FOR', value: `$${totalSell.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, sub: `$${unitSell.toFixed(2)}/unit`, color: 'var(--text)' },
+                { label: 'YOU MAKE', value: `$${totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, sub: `${markup}% margin`, color: profitColor },
               ].map(({ label, value, sub, color }) => (
                 <div key={label} className="flex flex-col gap-0.5">
                   <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: 'var(--highlight-blue-text)' }}>{label}</span>
@@ -216,6 +240,7 @@ export default function ComparisonTable({ results }: Props) {
   const rows = buildRows(results)
   const scores = computeBestValueScores(results)
   const [bidTarget, setBidTarget] = useState<BidTarget | null>(null)
+  const [sortBy, setSortBy] = useState<'price' | 'alpha' | 'spread'>('price')
 
   function lowestSupplier(row: ComparisonRow): string | null {
     let min = Infinity, winner = null
@@ -230,16 +255,43 @@ export default function ComparisonTable({ results }: Props) {
     <div className="flex flex-col gap-6">
 
       {/* Section header */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <span className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--text-faint)' }}>
           Comparison Results
         </span>
         <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+        <div className="flex items-center gap-1">
+          {([['price', 'Price'], ['alpha', 'A–Z'], ['spread', 'Spread']] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setSortBy(key)}
+              className="text-xs px-2.5 py-1 rounded-md font-semibold transition-colors"
+              style={{
+                background: sortBy === key ? 'var(--highlight-blue)' : 'transparent',
+                color: sortBy === key ? 'var(--highlight-blue-text)' : 'var(--text-faint)',
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* One mini chart per part */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {rows.map((row) => {
+        {[...rows].sort((a, b) => {
+          const avgPrice = (row: ComparisonRow) => {
+            const prices = suppliers.map(s => row.suppliers[s]?.unit_price).filter((p): p is number => p != null)
+            return prices.length ? prices.reduce((s, p) => s + p, 0) / prices.length : 0
+          }
+          const spread = (row: ComparisonRow) => {
+            const prices = suppliers.map(s => row.suppliers[s]?.unit_price).filter((p): p is number => p != null)
+            return prices.length > 1 ? Math.max(...prices) - Math.min(...prices) : 0
+          }
+          if (sortBy === 'price') return avgPrice(b) - avgPrice(a)
+          if (sortBy === 'alpha') return (a.description ?? a.part_number).localeCompare(b.description ?? b.part_number)
+          return spread(b) - spread(a)
+        }).map((row) => {
           const lowest = lowestSupplier(row)
           const chartData = suppliers
             .filter((s) => row.suppliers[s]?.unit_price != null)
