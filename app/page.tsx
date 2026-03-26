@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import SessionHistory from '@/components/SessionHistory'
 
@@ -17,12 +18,45 @@ export default async function HomePage() {
     // DB not connected yet — show empty state
   }
 
+  const hasSessions = sessions.length > 0
+
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold" style={{ color: '#0f172a' }}>
-        RFQ Sessions
-      </h1>
-      <SessionHistory sessions={sessions as unknown as Parameters<typeof SessionHistory>[0]['sessions']} />
+    <div className="flex flex-col gap-12">
+      {/* Hero — centered */}
+      <div className="flex flex-col items-center justify-center text-center" style={{ minHeight: 'calc(100vh - 120px)' }}>
+        <div className="flex flex-col items-center gap-6 max-w-2xl">
+          <h1 className="text-5xl font-bold leading-tight" style={{ color: 'var(--text)' }}>
+            From Opportunity to Award,<br />Faster.
+          </h1>
+          <p className="text-lg" style={{ color: 'var(--text-muted)' }}>
+            Paste supplier quotes in any format — email, PDF, spreadsheet. AI extracts every line item instantly and builds a side-by-side comparison so you can make the call in seconds, not hours.
+          </p>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/rfq/new"
+              className="px-6 py-3 rounded-lg font-semibold text-sm transition-colors no-underline"
+              style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}
+            >
+              Analyze Your First Quote →
+            </Link>
+            {hasSessions && (
+              <span className="text-sm" style={{ color: 'var(--text-faint)' }}>
+                {sessions.length} session{sessions.length !== 1 ? 's' : ''} saved
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Session history — only shown if sessions exist */}
+      {hasSessions && (
+        <div className="flex flex-col gap-3">
+          <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: 'var(--text-faint)' }}>
+            Recent Sessions
+          </span>
+          <SessionHistory sessions={sessions as unknown as Parameters<typeof SessionHistory>[0]['sessions']} />
+        </div>
+      )}
     </div>
   )
 }

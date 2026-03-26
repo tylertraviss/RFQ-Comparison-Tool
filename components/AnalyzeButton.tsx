@@ -13,14 +13,15 @@ export default function AnalyzeButton({ onClick, loading, disabled }: Props) {
       disabled={disabled || loading}
       className="w-full py-3 rounded-lg font-semibold text-sm tracking-wide transition-all"
       style={{
-        background: disabled || loading ? '#e2e8f0' : '#0f172a',
-        color: disabled || loading ? '#94a3b8' : '#ffffff',
+        background: disabled || loading ? 'var(--bg-surface)' : 'var(--btn-primary-bg)',
+        color: disabled || loading ? 'var(--text-faint)' : 'var(--btn-primary-text)',
         cursor: disabled || loading ? 'not-allowed' : 'pointer',
+        border: '1px solid var(--border)',
       }}
     >
       {loading ? (
         <span className="flex items-center justify-center gap-3">
-          <span className="inline-block w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+          <span className="inline-block w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--text-faint)', borderTopColor: 'transparent' }} />
           Extracting line items...
         </span>
       ) : (

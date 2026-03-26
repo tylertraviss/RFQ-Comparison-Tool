@@ -18,11 +18,11 @@ export default function SessionHistory({ sessions }: Props) {
     return (
       <div
         className="rounded-xl border px-6 py-12 text-center"
-        style={{ borderColor: '#e2e8f0', background: '#f8fafc' }}
+        style={{ borderColor: 'var(--border)', background: 'var(--bg-surface)' }}
       >
-        <p className="text-sm" style={{ color: '#94a3b8' }}>
+        <p className="text-sm" style={{ color: 'var(--text-faint)' }}>
           No sessions yet.{' '}
-          <Link href="/rfq/new" style={{ color: '#0f172a', fontWeight: 600 }} className="hover:underline">
+          <Link href="/rfq/new" style={{ color: 'var(--text)', fontWeight: 600 }} className="hover:underline">
             Start your first RFQ →
           </Link>
         </p>
@@ -31,31 +31,31 @@ export default function SessionHistory({ sessions }: Props) {
   }
 
   return (
-    <div className="rounded-xl border overflow-hidden" style={{ borderColor: '#e2e8f0' }}>
+    <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
       {sessions.map((session, i) => (
         <Link
           key={session.id}
           href={`/rfq/${session.id}`}
-          className="flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors no-underline"
+          className="flex items-center justify-between px-5 py-4 transition-colors no-underline"
           style={{
-            background: '#ffffff',
-            borderTop: i > 0 ? '1px solid #e2e8f0' : undefined,
+            background: 'var(--bg)',
+            borderTop: i > 0 ? '1px solid var(--border)' : undefined,
           }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-surface)')}
+          onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--bg)')}
         >
           <div className="flex flex-col gap-0.5">
-            <span className="font-semibold text-sm" style={{ color: '#0f172a' }}>
+            <span className="font-semibold text-sm" style={{ color: 'var(--text)' }}>
               {session.name}
             </span>
-            <span className="text-xs" style={{ color: '#94a3b8' }}>
+            <span className="text-xs" style={{ color: 'var(--text-faint)' }}>
               {session.quotes.length} supplier{session.quotes.length !== 1 ? 's' : ''} ·{' '}
               {new Date(session.createdAt).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
+                month: 'short', day: 'numeric', year: 'numeric',
               })}
             </span>
           </div>
-          <span style={{ color: '#94a3b8' }}>→</span>
+          <span style={{ color: 'var(--text-faint)' }}>→</span>
         </Link>
       ))}
     </div>
