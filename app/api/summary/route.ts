@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     max_tokens: 800,
     messages: [{
       role: 'user',
-      content: `You are a senior defense procurement intelligence analyst. Analyze these supplier quotes and return a JSON object with exactly three fields, each containing an array of short bullet point strings (2-4 bullets each). Be direct, specific, and cite part numbers and prices where relevant.
+      content: `You are a defense procurement analyst. Analyze these supplier quotes. Return a JSON object with three fields, each an array of exactly 3 bullet strings. Each bullet must be a single compact phrase under 12 words. No full sentences. Be specific and cite numbers.
 
 ${table}
 

@@ -49,32 +49,9 @@ export default function ComparisonTable({ results, onSave, onCSV, saving, saved 
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-base" style={{ color: 'var(--text)' }}>
-          Comparison Results
-        </h2>
-        <div className="flex gap-2">
-          <button
-            onClick={onSave}
-            disabled={saving || saved}
-            className="px-4 py-2 rounded-lg text-sm font-semibold border transition-colors"
-            style={{
-              background: saved ? 'var(--highlight-green)' : 'var(--bg)',
-              borderColor: saved ? 'var(--highlight-green-text)' : 'var(--border)',
-              color: saved ? 'var(--highlight-green-text)' : 'var(--text)',
-            }}
-          >
-            {saved ? 'Saved ✓' : saving ? 'Saving...' : 'Save Session'}
-          </button>
-          <button
-            onClick={onCSV}
-            className="px-4 py-2 rounded-lg text-sm font-semibold border transition-colors"
-            style={{ background: 'var(--bg)', borderColor: 'var(--border)', color: 'var(--text)' }}
-          >
-            Export CSV
-          </button>
-        </div>
-      </div>
+      <h2 className="font-semibold text-base" style={{ color: 'var(--text)' }}>
+        Comparison Results
+      </h2>
 
       <div className="overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--border)' }}>
         <table className="w-full text-sm border-collapse">

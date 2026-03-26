@@ -1,5 +1,7 @@
 'use client'
 
+import BulletDetail from '@/components/BulletDetail'
+
 export interface Intel {
   recommendation: string[]
   vulnerabilities: string[]
@@ -66,7 +68,7 @@ function Card({
 }) {
   return (
     <div
-      className="flex flex-col gap-3 rounded-xl border p-5"
+      className="flex flex-col gap-2 rounded-xl border p-4"
       style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
     >
       <div className="flex items-center gap-2">
@@ -76,26 +78,23 @@ function Card({
         >
           {icon}
         </span>
-        <div className="flex flex-col">
-          <span className="text-xs font-bold tracking-widest uppercase" style={{ color: accent }}>
-            {label}
-          </span>
-          <span className="text-xs" style={{ color: 'var(--text-faint)' }}>{sublabel}</span>
-        </div>
+        <span className="text-xs font-bold tracking-widest uppercase" style={{ color: accent }}>
+          {label}
+        </span>
       </div>
 
       {bullets === null ? (
-        <div className="flex flex-col gap-2">
-          {[95, 75, 55].map((w) => (
-            <div key={w} className="h-2.5 rounded animate-pulse" style={{ width: `${w}%`, background: 'var(--border)' }} />
+        <div className="flex flex-col gap-1.5">
+          {[90, 75, 55].map((w) => (
+            <div key={w} className="h-2 rounded animate-pulse" style={{ width: `${w}%`, background: 'var(--border)' }} />
           ))}
         </div>
       ) : (
-        <ul className="flex flex-col gap-2 pl-1">
+        <ul className="flex flex-col gap-2">
           {bullets.map((b, i) => (
             <li key={i} className="flex items-start gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
-              <span className="mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: accent }} />
-              {b}
+              <span className="mt-2 w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: accent }} />
+              <BulletDetail bullet={b} context={label.toLowerCase()} accent={accent} />
             </li>
           ))}
         </ul>
