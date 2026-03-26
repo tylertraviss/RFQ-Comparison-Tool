@@ -1,5 +1,16 @@
 'use client'
 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  Cell,
+} from 'recharts'
 import type { SupplierResult, ComparisonRow } from '@/types/quote'
 import { computeBestValueScores } from '@/lib/scoring'
 
@@ -24,12 +35,34 @@ function buildRows(results: SupplierResult[]): ComparisonRow[] {
   return Array.from(partMap.values())
 }
 
-export default function ComparisonTable({ results, onSave, onCSV, saving, saved }: Props) {
+const SUPPLIER_COLORS = ['#2563eb', '#16a34a', '#f59e0b', '#8b5cf6']
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null
+  return (
+    <div
+      className="rounded-lg border px-4 py-3 text-sm flex flex-col gap-1"
+      style={{ background: 'var(--bg)', borderColor: 'var(--border)', color: 'var(--text)' }}
+    >
+      <p className="font-semibold font-mono text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
+      {payload.map((entry: any) => (
+        <p key={entry.name} className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full inline-block" style={{ background: entry.fill }} />
+          <span style={{ color: 'var(--text-muted)' }}>{entry.name}:</span>
+          <span className="font-semibold">${entry.value?.toFixed(2)}</span>
+        </p>
+      ))}
+    </div>
+  )
+}
+
+export default function ComparisonTable({ results }: Props) {
   const suppliers = results.map((r) => r.supplier)
   const rows = buildRows(results)
   const scores = computeBestValueScores(results)
 
-  function minPriceSupplier(row: ComparisonRow): string | null {
+  // Find lowest price supplier per part for coloring
+  function lowestSupplier(row: ComparisonRow): string | null {
     let min = Infinity, winner = null
     for (const s of suppliers) {
       const p = row.suppliers[s]?.unit_price
@@ -38,134 +71,94 @@ export default function ComparisonTable({ results, onSave, onCSV, saving, saved 
     return winner
   }
 
-  const minLeadScore = scores.reduce<string | null>((best, s) => {
-    if (s.avgLeadTime == null) return best
-    if (best === null) return s.supplier
-    const bestAvg = scores.find(x => x.supplier === best)?.avgLeadTime ?? Infinity
-    return s.avgLeadTime < bestAvg ? s.supplier : best
-  }, null)
+  const maxScore = Math.max(...scores.map((x) => x.score))
 
-  const maxScore = Math.max(...scores.map((s) => s.score))
+  const SCORE_ICONS = [
+    // Trophy / winner
+    <svg key="trophy" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>,
+    // Middle
+    <svg key="mid" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>,
+    // Warning
+    <svg key="warn" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>,
+    <svg key="warn2" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>,
+  ]
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-base" style={{ color: 'var(--text)' }}>
+    <div className="flex flex-col gap-6">
+
+      {/* Section header */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--text-faint)' }}>
           Comparison Results
-        </h2>
-        <div className="flex gap-2">
-          <button
-            onClick={onSave}
-            disabled={saving || saved}
-            className="px-4 py-2 rounded-lg text-sm font-semibold border transition-colors"
-            style={{
-              background: saved ? 'var(--highlight-green)' : 'var(--bg)',
-              borderColor: saved ? 'var(--highlight-green-text)' : 'var(--border)',
-              color: saved ? 'var(--highlight-green-text)' : 'var(--text)',
-            }}
-          >
-            {saved ? 'Saved ✓' : saving ? 'Saving...' : 'Save Session'}
-          </button>
-          <button
-            onClick={onCSV}
-            className="px-4 py-2 rounded-lg text-sm font-semibold border transition-colors"
-            style={{ background: 'var(--bg)', borderColor: 'var(--border)', color: 'var(--text)' }}
-          >
-            Export CSV
-          </button>
-        </div>
+        </span>
+        <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
       </div>
 
-      <div className="overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--border)' }}>
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)' }}>
-              <th
-                className="sticky left-0 px-4 py-3 text-left text-xs font-semibold tracking-widest uppercase"
-                style={{ background: 'var(--bg-surface)', color: 'var(--text-muted)', borderRight: '1px solid var(--border)' }}
-              >
-                Part #
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold tracking-widest uppercase" style={{ color: 'var(--text-muted)' }}>
-                Description
-              </th>
-              {suppliers.map((s) => (
-                <th key={s} className="px-4 py-3 text-right text-xs font-semibold tracking-widest uppercase" style={{ color: 'var(--text-muted)' }}>
-                  {s}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => {
-              const winner = minPriceSupplier(row)
-              const rowBg = i % 2 === 0 ? 'var(--bg)' : 'var(--row-alt)'
-              return (
-                <tr key={row.part_number} style={{ borderTop: '1px solid var(--border)', background: rowBg }}>
-                  <td
-                    className="sticky left-0 px-4 py-3 font-mono text-xs font-semibold"
-                    style={{ background: rowBg, color: 'var(--text)', borderRight: '1px solid var(--border)' }}
-                  >
-                    {row.part_number}
-                  </td>
-                  <td className="px-4 py-3" style={{ color: 'var(--text-muted)' }}>
-                    {row.description ?? <span style={{ color: 'var(--text-faint)' }}>—</span>}
-                  </td>
-                  {suppliers.map((s) => {
-                    const item = row.suppliers[s]
-                    const isLowest = s === winner && item?.unit_price != null
-                    return (
-                      <td
-                        key={s}
-                        className="px-4 py-3 text-right font-mono"
-                        style={{
-                          background: isLowest ? 'var(--highlight-green)' : 'transparent',
-                          color: isLowest ? 'var(--highlight-green-text)' : 'var(--text)',
-                          fontWeight: isLowest ? 700 : 400,
-                        }}
-                      >
-                        {item?.unit_price != null ? `$${item.unit_price.toFixed(2)}` : <span style={{ color: 'var(--text-faint)' }}>—</span>}
-                      </td>
-                    )
-                  })}
-                </tr>
-              )
-            })}
+      {/* One mini chart per part */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {rows.map((row) => {
+          const lowest = lowestSupplier(row)
+          const chartData = suppliers
+            .filter((s) => row.suppliers[s]?.unit_price != null)
+            .map((s, i) => ({
+              supplier: s,
+              price: row.suppliers[s]!.unit_price,
+              fill: lowest === s ? '#16a34a' : SUPPLIER_COLORS[i % SUPPLIER_COLORS.length],
+            }))
 
-            <tr style={{ borderTop: '2px solid var(--border)', background: 'var(--bg-surface)' }}>
-              <td className="sticky left-0 px-4 py-3 text-xs font-semibold uppercase tracking-widest" style={{ background: 'var(--bg-surface)', color: 'var(--text-muted)', borderRight: '1px solid var(--border)' }}>
-                Lead Time
-              </td>
-              <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-faint)' }}>Avg across items</td>
-              {scores.map((s) => {
-                const isFastest = s.supplier === minLeadScore && s.avgLeadTime != null
-                return (
-                  <td key={s.supplier} className="px-4 py-3 text-right font-mono text-sm" style={{ background: isFastest ? 'var(--highlight-blue)' : 'transparent', color: isFastest ? 'var(--highlight-blue-text)' : 'var(--text)', fontWeight: isFastest ? 700 : 400 }}>
-                    {s.avgLeadTime != null ? `${Math.round(s.avgLeadTime)} days` : <span style={{ color: 'var(--text-faint)' }}>—</span>}
-                  </td>
-                )
-              })}
-            </tr>
-
-            <tr style={{ borderTop: '1px solid var(--border)', background: 'var(--bg-surface)' }}>
-              <td className="sticky left-0 px-4 py-3 text-xs font-semibold uppercase tracking-widest" style={{ background: 'var(--bg-surface)', color: 'var(--text-muted)', borderRight: '1px solid var(--border)' }}>
-                Best Value
-              </td>
-              <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-faint)' }}>Weighted score (0–100)</td>
-              {scores.map((s) => {
-                const isTop = s.score === maxScore
-                return (
-                  <td key={s.supplier} className="px-4 py-3 text-right font-mono font-bold text-sm" style={{ color: isTop ? 'var(--text)' : 'var(--text-muted)' }}>
-                    <span className="px-2 py-1 rounded-md text-xs" style={{ background: isTop ? 'var(--btn-primary-bg)' : 'var(--bg-surface)', color: isTop ? 'var(--btn-primary-text)' : 'var(--text-muted)' }}>
-                      {s.score} pts
-                    </span>
-                  </td>
-                )
-              })}
-            </tr>
-          </tbody>
-        </table>
+          return (
+            <div
+              key={row.part_number}
+              className="rounded-xl border p-4 flex flex-col gap-2"
+              style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+            >
+              <p className="text-xs font-semibold truncate" style={{ color: 'var(--text)' }} title={row.description ?? row.part_number}>
+                {row.description ?? row.part_number}
+              </p>
+              <p className="text-xs font-mono" style={{ color: 'var(--text-faint)' }}>{row.part_number}</p>
+              <ResponsiveContainer width="100%" height={120}>
+                <BarChart data={chartData} barCategoryGap="30%" margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                  <CartesianGrid vertical={false} stroke="var(--border)" />
+                  <XAxis
+                    dataKey="supplier"
+                    tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tickFormatter={(v) => `$${v}`}
+                    tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={48}
+                  />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--border)', opacity: 0.4 }} />
+                  <Bar dataKey="price" radius={[4, 4, 0, 0]}>
+                    {chartData.map((entry, i) => (
+                      <Cell key={i} fill={entry.fill} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )
+        })}
       </div>
+
     </div>
   )
 }
