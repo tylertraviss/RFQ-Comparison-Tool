@@ -26,10 +26,10 @@ export default async function HomePage() {
       <div className="flex flex-col items-center justify-center text-center" style={{ minHeight: 'calc(100vh - 120px)' }}>
         <div className="flex flex-col items-center gap-6 max-w-2xl">
           <h1 className="text-5xl font-bold leading-tight" style={{ color: 'var(--text)' }}>
-            From Opportunity to Award,<br />Faster.
+            Source Smarter.<br />Bid Faster. Win More.
           </h1>
           <p className="text-lg" style={{ color: 'var(--text-muted)' }}>
-            Paste supplier quotes in any format — email, PDF, spreadsheet. AI extracts every line item instantly and builds a side-by-side comparison so you can make the call in seconds, not hours.
+            Built for defense distributors. Paste quotes from your suppliers, compare pricing and lead times instantly, then calculate your DLA bid with the right markup — all in one place.
           </p>
           <div className="flex items-center gap-4">
             <Link
