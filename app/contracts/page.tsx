@@ -1,10 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Area, AreaChart,
-} from 'recharts'
 
 type BidStatus = 'WAITING' | 'WON' | 'LOST'
 
@@ -28,48 +24,69 @@ function fmt(n: number) {
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-function StatusBadge({ status }: { status: BidStatus }) {
-  const styles: Record<BidStatus, { bg: string; color: string; label: string }> = {
-    WON:     { bg: 'var(--highlight-green)',   color: 'var(--highlight-green-text)',  label: 'Won'     },
-    WAITING: { bg: '#fff7ed',                  color: '#c2410c',                      label: 'Waiting' },
-    LOST:    { bg: '#fef2f2',                  color: '#dc2626',                      label: 'Lost'    },
-  }
-  const s = styles[status]
-  return (
-    <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: s.bg, color: s.color }}>
-      {s.label}
-    </span>
-  )
-}
+const COLUMNS: { status: BidStatus; label: string; accent: string; accentBg: string; icon: React.ReactNode }[] = [
+  {
+    status: 'WON',
+    label: 'Won',
+    accent: '#16a34a',
+    accentBg: 'var(--highlight-green)',
+    icon: (
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+    ),
+  },
+  {
+    status: 'WAITING',
+    label: 'Waiting',
+    accent: '#c2410c',
+    accentBg: '#fff7ed',
+    icon: (
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+      </svg>
+    ),
+  },
+  {
+    status: 'LOST',
+    label: 'Lost',
+    accent: '#dc2626',
+    accentBg: '#fef2f2',
+    icon: (
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+      </svg>
+    ),
+  },
+]
 
 function ContractCard({ bid, onStatusChange }: { bid: Bid; onStatusChange: (id: string, status: BidStatus, lostBy?: number) => void }) {
   const [lostByInput, setLostByInput] = useState('')
   const [showLostInput, setShowLostInput] = useState(false)
-
   const date = new Date(bid.bidDate).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' })
 
   return (
     <div
       className="rounded-xl border p-4 flex flex-col gap-3"
-      style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
+      style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
     >
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="font-bold text-sm font-mono" style={{ color: 'var(--text)' }}>{bid.partNumber}</p>
+        <div className="flex flex-col gap-0.5 min-w-0">
+          <p className="font-bold text-sm font-mono truncate" style={{ color: 'var(--text)' }}>{bid.partNumber}</p>
           {bid.description && <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{bid.description}</p>}
         </div>
         {bid.status === 'WON' && (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" className="flex-shrink-0 mt-0.5">
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
           </svg>
         )}
         {bid.status === 'WAITING' && (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c2410c" strokeWidth="2.5">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c2410c" strokeWidth="2.5" className="flex-shrink-0 mt-0.5">
             <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
           </svg>
         )}
         {bid.status === 'LOST' && (
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" className="flex-shrink-0 mt-0.5">
             <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
           </svg>
         )}
@@ -103,7 +120,6 @@ function ContractCard({ bid, onStatusChange }: { bid: Bid; onStatusChange: (id: 
         </div>
       )}
 
-      {/* Status actions */}
       {bid.status === 'WAITING' && (
         <div className="flex flex-col gap-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
           {showLostInput ? (
@@ -112,12 +128,8 @@ function ContractCard({ bid, onStatusChange }: { bid: Bid; onStatusChange: (id: 
               <div className="relative flex-shrink-0">
                 <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs" style={{ color: 'var(--text-faint)' }}>$</span>
                 <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={lostByInput}
-                  onChange={e => setLostByInput(e.target.value)}
+                  type="number" min="0" step="0.01" placeholder="0.00"
+                  value={lostByInput} onChange={e => setLostByInput(e.target.value)}
                   className="w-20 rounded-lg pl-5 pr-2 py-1.5 text-xs border outline-none"
                   style={{ background: 'var(--input-bg)', borderColor: 'var(--border)', color: 'var(--text)' }}
                 />
@@ -126,9 +138,7 @@ function ContractCard({ bid, onStatusChange }: { bid: Bid; onStatusChange: (id: 
                 onClick={() => { onStatusChange(bid.id, 'LOST', parseFloat(lostByInput) || 0); setShowLostInput(false) }}
                 className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold"
                 style={{ background: '#fef2f2', color: '#dc2626' }}
-              >
-                Confirm
-              </button>
+              >Confirm</button>
               <button onClick={() => setShowLostInput(false)} className="flex-shrink-0 text-xs" style={{ color: 'var(--text-faint)' }}>Cancel</button>
             </div>
           ) : (
@@ -136,17 +146,13 @@ function ContractCard({ bid, onStatusChange }: { bid: Bid; onStatusChange: (id: 
               <button
                 onClick={() => onStatusChange(bid.id, 'WON')}
                 className="flex-1 rounded-lg py-1.5 text-xs font-semibold"
-                style={{ background: 'var(--highlight-green)', color: 'var(--highlight-green-text)' }}
-              >
-                Mark Won
-              </button>
+                style={{ background: 'var(--highlight-green)', color: '#16a34a' }}
+              >Mark Won</button>
               <button
                 onClick={() => setShowLostInput(true)}
                 className="flex-1 rounded-lg py-1.5 text-xs font-semibold"
                 style={{ background: '#fef2f2', color: '#dc2626' }}
-              >
-                Mark Lost
-              </button>
+              >Mark Lost</button>
             </div>
           )}
         </div>
@@ -155,70 +161,8 @@ function ContractCard({ bid, onStatusChange }: { bid: Bid; onStatusChange: (id: 
   )
 }
 
-function ChartCard({ title, data, dataKey, color }: { title: string; data: any[]; dataKey: string; color: string }) {
-  return (
-    <div
-      className="rounded-xl border p-4 flex flex-col gap-3"
-      style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}
-    >
-      <div className="flex items-center gap-2">
-        <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: color }} />
-        <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>{title}</span>
-      </div>
-      <ResponsiveContainer width="100%" height={140}>
-        <AreaChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-          <defs>
-            <linearGradient id={`grad-${dataKey}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={color} stopOpacity={0.15} />
-              <stop offset="95%" stopColor={color} stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid vertical={false} stroke="var(--border)" />
-          <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} width={40}
-            tickFormatter={dataKey.includes('value') ? (v) => `$${v >= 1000000 ? (v/1000000).toFixed(1)+'M' : v >= 1000 ? (v/1000).toFixed(0)+'K' : v}` : undefined}
-          />
-          <Tooltip
-            contentStyle={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
-            labelStyle={{ color: 'var(--text-muted)' }}
-          />
-          <Area type="monotone" dataKey={dataKey} stroke={color} strokeWidth={2} fill={`url(#grad-${dataKey})`} dot={false} />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  )
-}
-
-function buildChartData(bids: Bid[]) {
-  const byDay: Record<string, { bids: number; awards: number; valueBid: number; valueAwarded: number }> = {}
-
-  for (const bid of bids) {
-    const d = new Date(bid.bidDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit' })
-    if (!byDay[d]) byDay[d] = { bids: 0, awards: 0, valueBid: 0, valueAwarded: 0 }
-    byDay[d].bids += 1
-    byDay[d].valueBid += bid.unitSell * bid.quantity
-    if (bid.status === 'WON') {
-      byDay[d].awards += 1
-      byDay[d].valueAwarded += bid.unitSell * bid.quantity
-    }
-  }
-
-  return Object.entries(byDay)
-    .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
-    .map(([date, vals]) => ({ date, ...vals }))
-}
-
-const TABS: BidStatus[] = ['WON', 'WAITING', 'LOST']
-const TAB_LABELS: Record<BidStatus, string> = { WON: 'Won', WAITING: 'Waiting', LOST: 'Lost' }
-const TAB_COLORS: Record<BidStatus, { active: string; text: string }> = {
-  WON:     { active: 'var(--highlight-green)',   text: 'var(--highlight-green-text)' },
-  WAITING: { active: '#fff7ed',                  text: '#c2410c' },
-  LOST:    { active: '#fef2f2',                  text: '#dc2626' },
-}
-
 export default function ContractsPage() {
   const [bids, setBids] = useState<Bid[]>([])
-  const [tab, setTab] = useState<BidStatus>('WON')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -233,9 +177,6 @@ export default function ContractsPage() {
     setBids(prev => prev.map(b => b.id === updated.id ? updated : b))
   }
 
-  const filtered = bids.filter(b => b.status === tab)
-  const chartData = buildChartData(bids)
-
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-2">
@@ -245,63 +186,51 @@ export default function ContractsPage() {
         <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 items-start">
-
-        {/* Left — contract list */}
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-base font-bold" style={{ color: 'var(--text)' }}>Contracts</span>
-          </div>
-
-          {/* Tabs */}
-          <div className="flex gap-2">
-            {TABS.map(t => {
-              const active = tab === t
-              const c = TAB_COLORS[t]
-              return (
-                <button
-                  key={t}
-                  onClick={() => setTab(t)}
-                  className="px-3 py-1 rounded-full text-xs font-semibold border transition-all"
-                  style={{
-                    background: active ? c.active : 'transparent',
-                    color: active ? c.text : 'var(--text-muted)',
-                    borderColor: active ? c.text : 'var(--border)',
-                  }}
+      {loading ? (
+        <div className="text-sm" style={{ color: 'var(--text-faint)' }}>Loading...</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+          {COLUMNS.map(col => {
+            const colBids = bids.filter(b => b.status === col.status)
+            return (
+              <div key={col.status} className="flex flex-col gap-3">
+                {/* Column header */}
+                <div
+                  className="flex items-center justify-between px-3 py-2 rounded-lg"
+                  style={{ background: col.accentBg }}
                 >
-                  {TAB_LABELS[t]}
-                </button>
-              )
-            })}
-          </div>
+                  <div className="flex items-center gap-2" style={{ color: col.accent }}>
+                    {col.icon}
+                    <span className="text-xs font-bold tracking-widest uppercase">{col.label}</span>
+                  </div>
+                  <span
+                    className="text-xs font-bold px-2 py-0.5 rounded-full"
+                    style={{ background: col.accent, color: '#fff' }}
+                  >
+                    {colBids.length}
+                  </span>
+                </div>
 
-          {/* Cards */}
-          <div className="flex flex-col gap-3">
-            {loading && (
-              <div className="text-xs" style={{ color: 'var(--text-faint)' }}>Loading...</div>
-            )}
-            {!loading && filtered.length === 0 && (
-              <div
-                className="rounded-xl border p-6 text-center text-sm"
-                style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-faint)' }}
-              >
-                No {TAB_LABELS[tab].toLowerCase()} contracts yet
+                {/* Cards */}
+                <div className="flex flex-col gap-3">
+                  {colBids.length === 0 ? (
+                    <div
+                      className="rounded-xl border border-dashed p-6 text-center text-xs"
+                      style={{ borderColor: 'var(--border)', color: 'var(--text-faint)' }}
+                    >
+                      No {col.label.toLowerCase()} contracts
+                    </div>
+                  ) : (
+                    colBids.map(bid => (
+                      <ContractCard key={bid.id} bid={bid} onStatusChange={handleStatusChange} />
+                    ))
+                  )}
+                </div>
               </div>
-            )}
-            {filtered.map(bid => (
-              <ContractCard key={bid.id} bid={bid} onStatusChange={handleStatusChange} />
-            ))}
-          </div>
+            )
+          })}
         </div>
-
-        {/* Right — charts */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <ChartCard title="Bid by Day"           data={chartData} dataKey="bids"          color="#2563eb" />
-          <ChartCard title="Awards by Day"        data={chartData} dataKey="awards"        color="#16a34a" />
-          <ChartCard title="Value Bid by Day"     data={chartData} dataKey="valueBid"      color="#2563eb" />
-          <ChartCard title="Value Awarded by Day" data={chartData} dataKey="valueAwarded"  color="#16a34a" />
-        </div>
-      </div>
+      )}
     </div>
   )
 }
