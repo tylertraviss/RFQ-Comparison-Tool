@@ -236,9 +236,9 @@ type Tab = 'dashboard' | 'pipeline' | 'analytics' | 'top-parts' | 'agent'
 const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'dashboard',  label: 'Dashboard',  icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg> },
   { key: 'pipeline',   label: 'Pipeline',   icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="12" rx="1"/></svg> },
+  { key: 'agent',      label: 'Agent',      icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M9 11V7a3 3 0 0 1 6 0v4"/><circle cx="9" cy="16" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="16" r="1" fill="currentColor" stroke="none"/><path d="M12 3v2"/><path d="M8 3l1 1.5"/><path d="M16 3l-1 1.5"/></svg> },
   { key: 'analytics',  label: 'Analytics',  icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> },
   { key: 'top-parts',  label: 'Top Parts',  icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="18 15 12 9 6 15"/></svg> },
-  { key: 'agent',      label: 'Agent',      icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M9 11V7a3 3 0 0 1 6 0v4"/><circle cx="9" cy="16" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="16" r="1" fill="currentColor" stroke="none"/><path d="M12 3v2"/><path d="M8 3l1 1.5"/><path d="M16 3l-1 1.5"/></svg> },
 ]
 
 // ── Page ──────────────────────────────────────────────────────────────────────

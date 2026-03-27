@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import Navbar from '@/components/Navbar'
+import ThemeToggle from '@/components/ThemeToggle'
 import { ThemeProvider } from '@/lib/theme'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -20,6 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-10">
             {children}
           </main>
+          <ThemeToggle />
         </ThemeProvider>
       </body>
     </html>
