@@ -1,6 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import {
+  AreaChart, Area, BarChart, Bar, LineChart, Line,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+} from 'recharts'
 
 type BidStatus = 'WAITING' | 'WON' | 'LOST'
 
@@ -161,9 +165,84 @@ function ContractCard({ bid, onStatusChange }: { bid: Bid; onStatusChange: (id: 
   )
 }
 
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--text-faint)' }}>{title}</span>
+      <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+    </div>
+  )
+}
+
+function buildWinRate(bids: Bid[]) {
+  const byWeek: Record<string, { won: number; total: number }> = {}
+  for (const bid of bids) {
+    const d = new Date(bid.bidDate)
+    const week = `${d.getMonth() + 1}/${d.getDate() - d.getDay()}`
+    if (!byWeek[week]) byWeek[week] = { won: 0, total: 0 }
+    byWeek[week].total++
+    if (bid.status === 'WON') byWeek[week].won++
+  }
+  return Object.entries(byWeek)
+    .sort(([a], [b]) => new Date('2026/' + a).getTime() - new Date('2026/' + b).getTime())
+    .map(([week, v]) => ({ week, rate: Math.round((v.won / v.total) * 100) }))
+}
+
+function buildPipeline(bids: Bid[]) {
+  const byWeek: Record<string, { won: number; waiting: number; lost: number }> = {}
+  for (const bid of bids) {
+    const d = new Date(bid.bidDate)
+    const week = `${d.getMonth() + 1}/${d.getDate() - d.getDay()}`
+    if (!byWeek[week]) byWeek[week] = { won: 0, waiting: 0, lost: 0 }
+    const val = bid.unitSell * bid.quantity
+    if (bid.status === 'WON') byWeek[week].won += val
+    else if (bid.status === 'WAITING') byWeek[week].waiting += val
+    else byWeek[week].lost += val
+  }
+  return Object.entries(byWeek)
+    .sort(([a], [b]) => new Date('2026/' + a).getTime() - new Date('2026/' + b).getTime())
+    .map(([week, v]) => ({ week, ...v }))
+}
+
+function buildSupplierWinRate(bids: Bid[]) {
+  const bySupplier: Record<string, { won: number; total: number }> = {}
+  for (const bid of bids) {
+    if (!bySupplier[bid.supplierName]) bySupplier[bid.supplierName] = { won: 0, total: 0 }
+    bySupplier[bid.supplierName].total++
+    if (bid.status === 'WON') bySupplier[bid.supplierName].won++
+  }
+  return Object.entries(bySupplier).map(([name, v]) => ({
+    name: name.split(' ')[0],
+    rate: Math.round((v.won / v.total) * 100),
+    won: v.won,
+    total: v.total,
+  }))
+}
+
+function buildAvgLostBy(bids: Bid[]) {
+  const lost = bids.filter(b => b.status === 'LOST' && b.lostBy != null)
+  const bySupplier: Record<string, number[]> = {}
+  for (const bid of lost) {
+    if (!bySupplier[bid.supplierName]) bySupplier[bid.supplierName] = []
+    bySupplier[bid.supplierName].push(bid.lostBy!)
+  }
+  return Object.entries(bySupplier).map(([name, vals]) => ({
+    name: name.split(' ')[0],
+    avg: parseFloat((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2)),
+  }))
+}
+
+const TOOLTIP_STYLE = {
+  contentStyle: { background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 },
+  labelStyle: { color: 'var(--text-muted)' },
+}
+
+type Tab = 'kanban' | 'charts'
+
 export default function ContractsPage() {
   const [bids, setBids] = useState<Bid[]>([])
   const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState<Tab>('kanban')
 
   useEffect(() => {
     fetch('/api/bids').then(r => r.json()).then(data => { setBids(data); setLoading(false) })
@@ -177,16 +256,139 @@ export default function ContractsPage() {
     setBids(prev => prev.map(b => b.id === updated.id ? updated : b))
   }
 
+  const winRateData = buildWinRate(bids)
+  const pipelineData = buildPipeline(bids)
+  const supplierData = buildSupplierWinRate(bids)
+  const lostByData = buildAvgLostBy(bids)
+
   return (
     <div className="flex flex-col gap-6">
+
+      {/* Page header */}
       <div className="flex items-center gap-2">
-        <span className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--text-faint)' }}>
-          Contracts
-        </span>
+        <span className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--text-faint)' }}>Contracts</span>
         <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
       </div>
 
-      {loading ? (
+      {/* GitHub-style tab bar */}
+      <div className="flex border-b" style={{ borderColor: 'var(--border)' }}>
+        {([
+          { key: 'kanban', label: 'Kanban Board', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="12" rx="1"/></svg> },
+          { key: 'charts', label: 'Charts',       icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> },
+        ] as { key: Tab; label: string; icon: React.ReactNode }[]).map(t => {
+          const active = tab === t.key
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className="flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors relative"
+              style={{ color: active ? 'var(--text)' : 'var(--text-muted)' }}
+            >
+              {t.icon}
+              {t.label}
+              {active && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t" style={{ background: 'var(--highlight-blue-text)' }} />
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Charts tab */}
+      {tab === 'charts' && <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          {/* Win Rate Over Time */}
+          <div className="rounded-xl border p-4 flex flex-col gap-3" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Win Rate Over Time</span>
+              <span className="text-xs" style={{ color: 'var(--text-faint)' }}>% of bids won per week</span>
+            </div>
+            <ResponsiveContainer width="100%" height={150}>
+              <AreaChart data={winRateData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="grad-wr" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#16a34a" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#16a34a" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} stroke="var(--border)" />
+                <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} width={32} tickFormatter={v => `${v}%`} domain={[0, 100]} />
+                <Tooltip {...TOOLTIP_STYLE} formatter={(v: any) => [`${v}%`, 'Win Rate']} />
+                <Area type="monotone" dataKey="rate" stroke="#16a34a" strokeWidth={2} fill="url(#grad-wr)" dot={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Pipeline Value */}
+          <div className="rounded-xl border p-4 flex flex-col gap-3" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Pipeline Value</span>
+              <span className="text-xs" style={{ color: 'var(--text-faint)' }}>Won / Waiting / Lost value by week</span>
+            </div>
+            <ResponsiveContainer width="100%" height={150}>
+              <BarChart data={pipelineData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barSize={12}>
+                <CartesianGrid vertical={false} stroke="var(--border)" />
+                <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} width={40} tickFormatter={v => `$${v >= 1000 ? (v/1000).toFixed(0)+'K' : v}`} />
+                <Tooltip {...TOOLTIP_STYLE} formatter={(v: any) => [`$${Number(v).toFixed(2)}`]} />
+                <Bar dataKey="won" stackId="a" fill="#16a34a" radius={[0,0,0,0]} />
+                <Bar dataKey="waiting" stackId="a" fill="#f59e0b" radius={[0,0,0,0]} />
+                <Bar dataKey="lost" stackId="a" fill="#dc2626" radius={[4,4,0,0]} />
+              </BarChart>
+            </ResponsiveContainer>
+            <div className="flex gap-4">
+              {[['Won','#16a34a'],['Waiting','#f59e0b'],['Lost','#dc2626']].map(([l,c]) => (
+                <div key={l} className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ background: c }} />
+                  <span className="text-xs" style={{ color: 'var(--text-faint)' }}>{l}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Avg Lost-By */}
+          <div className="rounded-xl border p-4 flex flex-col gap-3" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Avg Lost-By Amount</span>
+              <span className="text-xs" style={{ color: 'var(--text-faint)' }}>How close your losing bids are by supplier</span>
+            </div>
+            <ResponsiveContainer width="100%" height={150}>
+              <BarChart data={lostByData} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                <CartesianGrid horizontal={false} stroke="var(--border)" />
+                <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} width={55} />
+                <Tooltip {...TOOLTIP_STYLE} formatter={(v: any) => [`$${v}`, 'Avg Lost By']} />
+                <Bar dataKey="avg" fill="#dc2626" radius={[0,4,4,0]} barSize={18}>
+                  {lostByData.map((_, i) => <Cell key={i} fill="#dc2626" fillOpacity={0.7 + i * 0.1} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Supplier Win Rate */}
+          <div className="rounded-xl border p-4 flex flex-col gap-3" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Supplier Win Rate</span>
+              <span className="text-xs" style={{ color: 'var(--text-faint)' }}>Which supplier wins you the most contracts</span>
+            </div>
+            <ResponsiveContainer width="100%" height={150}>
+              <BarChart data={supplierData} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                <CartesianGrid horizontal={false} stroke="var(--border)" />
+                <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} domain={[0, 100]} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} width={55} />
+                <Tooltip {...TOOLTIP_STYLE} formatter={(v: any) => [`${v}%`, 'Win Rate']} />
+                <Bar dataKey="rate" radius={[0,4,4,0]} barSize={18}>
+                  {supplierData.map((_, i) => <Cell key={i} fill="#2563eb" fillOpacity={0.6 + i * 0.15} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+        </div>}
+
+      {/* Kanban tab */}
+      {tab === 'kanban' && (loading ? (
         <div className="text-sm" style={{ color: 'var(--text-faint)' }}>Loading...</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
@@ -230,7 +432,7 @@ export default function ContractsPage() {
             )
           })}
         </div>
-      )}
+      ))}
     </div>
   )
 }
