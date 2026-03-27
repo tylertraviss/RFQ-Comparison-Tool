@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import {
-  AreaChart, Area, BarChart, Bar, ScatterChart, Scatter,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+  AreaChart, Area, BarChart, Bar, LineChart, Line,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 
 type BidStatus = 'WAITING' | 'WON' | 'LOST'
@@ -32,8 +32,9 @@ function fmtK(n: number) {
 }
 
 const TOOLTIP_STYLE = {
-  contentStyle: { background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 },
-  labelStyle: { color: 'var(--text-muted)' },
+  contentStyle: { background: '#1e293b', border: '1px solid #334155', borderRadius: 8, fontSize: 12, color: '#f1f5f9' },
+  labelStyle: { color: '#94a3b8' },
+  itemStyle: { color: '#f1f5f9' },
 }
 
 // ── Data builders ─────────────────────────────────────────────────────────────
@@ -52,22 +53,6 @@ function buildWinRate(bids: Bid[]) {
     .map(([week, v]) => ({ week, rate: Math.round((v.won / v.total) * 100) }))
 }
 
-function buildPipeline(bids: Bid[]) {
-  const byWeek: Record<string, { won: number; waiting: number; lost: number }> = {}
-  for (const bid of bids) {
-    const d = new Date(bid.bidDate)
-    const week = `${d.getMonth() + 1}/${d.getDate() - d.getDay()}`
-    if (!byWeek[week]) byWeek[week] = { won: 0, waiting: 0, lost: 0 }
-    const val = bid.unitSell * bid.quantity
-    if (bid.status === 'WON') byWeek[week].won += val
-    else if (bid.status === 'WAITING') byWeek[week].waiting += val
-    else byWeek[week].lost += val
-  }
-  return Object.entries(byWeek)
-    .sort(([a], [b]) => new Date('2026/' + a).getTime() - new Date('2026/' + b).getTime())
-    .map(([week, v]) => ({ week, ...v }))
-}
-
 function buildSupplierWinRate(bids: Bid[]) {
   const m: Record<string, { won: number; total: number }> = {}
   for (const bid of bids) {
@@ -79,7 +64,7 @@ function buildSupplierWinRate(bids: Bid[]) {
     name: name.split(' ')[0],
     rate: Math.round((v.won / v.total) * 100),
     won: v.won, total: v.total,
-  }))
+  })).sort((a, b) => b.rate - a.rate)
 }
 
 function buildAvgLostBy(bids: Bid[]) {
@@ -91,38 +76,10 @@ function buildAvgLostBy(bids: Bid[]) {
   return Object.entries(m).map(([name, vals]) => ({
     name: name.split(' ')[0],
     avg: parseFloat((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2)),
-  }))
+  })).sort((a, b) => b.avg - a.avg)
 }
 
-function buildPartsCatalog(bids: Bid[]) {
-  const m: Record<string, { partNumber: string; description: string | null; won: number; total: number; profits: number[]; markups: number[] }> = {}
-  for (const bid of bids) {
-    if (!m[bid.partNumber]) m[bid.partNumber] = { partNumber: bid.partNumber, description: bid.description, won: 0, total: 0, profits: [], markups: [] }
-    m[bid.partNumber].total++
-    m[bid.partNumber].markups.push(bid.markup)
-    if (bid.status === 'WON') { m[bid.partNumber].won++; m[bid.partNumber].profits.push(bid.unitProfit) }
-  }
-  return Object.values(m).map(p => ({
-    partNumber: p.partNumber,
-    description: p.description,
-    winRate: Math.round((p.won / p.total) * 100),
-    bids: p.total,
-    wins: p.won,
-    avgProfit: p.profits.length ? parseFloat((p.profits.reduce((a, b) => a + b, 0) / p.profits.length).toFixed(2)) : null,
-    avgMarkup: parseFloat((p.markups.reduce((a, b) => a + b, 0) / p.markups.length).toFixed(1)),
-  })).sort((a, b) => b.winRate - a.winRate)
-}
-
-function buildMarginAnalysis(bids: Bid[]) {
-  return bids.filter(b => b.status !== 'WAITING').map(b => ({
-    markup: b.markup,
-    won: b.status === 'WON' ? 1 : 0,
-    label: b.partNumber,
-    status: b.status,
-  }))
-}
-
-function buildPnL(bids: Bid[]) {
+function buildMarginByMonth(bids: Bid[]) {
   const m: Record<string, { revenue: number; cost: number }> = {}
   for (const bid of bids.filter(b => b.status === 'WON')) {
     const month = new Date(bid.bidDate).toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
@@ -132,18 +89,69 @@ function buildPnL(bids: Bid[]) {
   }
   return Object.entries(m)
     .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
-    .map(([month, v]) => ({ month, revenue: parseFloat(v.revenue.toFixed(2)), cost: parseFloat(v.cost.toFixed(2)), profit: parseFloat((v.revenue - v.cost).toFixed(2)) }))
+    .map(([month, v]) => ({
+      month,
+      revenue: parseFloat(v.revenue.toFixed(2)),
+      cost: parseFloat(v.cost.toFixed(2)),
+      profit: parseFloat((v.revenue - v.cost).toFixed(2)),
+    }))
 }
 
-function buildTimeline(bids: Bid[]) {
+function buildMarkupWinRate(bids: Bid[]) {
+  const ranges: Record<string, { won: number; total: number }> = {
+    '≤15%': { won: 0, total: 0 },
+    '16–18%': { won: 0, total: 0 },
+    '19–20%': { won: 0, total: 0 },
+    '21–25%': { won: 0, total: 0 },
+    '26–30%': { won: 0, total: 0 },
+  }
+  for (const bid of bids.filter(b => b.status !== 'WAITING')) {
+    const key = bid.markup <= 15 ? '≤15%' : bid.markup <= 18 ? '16–18%' : bid.markup <= 20 ? '19–20%' : bid.markup <= 25 ? '21–25%' : '26–30%'
+    ranges[key].total++
+    if (bid.status === 'WON') ranges[key].won++
+  }
+  return Object.entries(ranges)
+    .filter(([, v]) => v.total > 0)
+    .map(([range, v]) => ({ range, rate: Math.round((v.won / v.total) * 100), total: v.total }))
+}
+
+function buildRecentActivity(bids: Bid[]) {
   return [...bids].sort((a, b) => new Date(b.bidDate).getTime() - new Date(a.bidDate).getTime())
 }
 
-function buildLeaderboard(bids: Bid[]) {
-  return bids.filter(b => b.status === 'WON')
+function buildTopParts(bids: Bid[]) {
+  return bids
+    .filter(b => b.status === 'WON')
     .map(b => ({ ...b, totalProfit: b.unitProfit * b.quantity }))
     .sort((a, b) => b.totalProfit - a.totalProfit)
     .slice(0, 10)
+}
+
+// ── Markdown renderer ─────────────────────────────────────────────────────────
+
+function renderMarkdown(text: string) {
+  return text.split('\n').map((line, i) => {
+    // ## Heading
+    if (/^##\s/.test(line)) {
+      return <p key={i} className="font-bold text-base mb-1" style={{ color: 'var(--text)' }}>{line.replace(/^##\s/, '')}</p>
+    }
+    // # Heading
+    if (/^#\s/.test(line)) {
+      return <p key={i} className="font-bold text-lg mb-1" style={{ color: 'var(--text)' }}>{line.replace(/^#\s/, '')}</p>
+    }
+    // Empty line → spacer
+    if (line.trim() === '') {
+      return <div key={i} className="h-2" />
+    }
+    // Inline bold (**text**)
+    const parts = line.split(/(\*\*[^*]+\*\*)/)
+    const rendered = parts.map((part, j) =>
+      /^\*\*[^*]+\*\*$/.test(part)
+        ? <strong key={j}>{part.slice(2, -2)}</strong>
+        : part
+    )
+    return <p key={i} className="leading-relaxed">{rendered}</p>
+  })
 }
 
 // ── Kanban ────────────────────────────────────────────────────────────────────
@@ -223,17 +231,14 @@ function ContractCard({ bid, onStatusChange }: { bid: Bid; onStatusChange: (id: 
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 
-type Tab = 'dashboard' | 'kanban' | 'charts' | 'catalog' | 'margin' | 'pnl' | 'timeline' | 'leaderboard'
+type Tab = 'dashboard' | 'pipeline' | 'analytics' | 'top-parts' | 'agent'
 
 const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
-  { key: 'dashboard',   label: 'Dashboard',      icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg> },
-  { key: 'kanban',      label: 'Kanban',          icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="12" rx="1"/></svg> },
-  { key: 'charts',      label: 'Charts',          icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> },
-  { key: 'catalog',     label: 'Parts Catalog',   icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> },
-  { key: 'margin',      label: 'Margin Analysis', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> },
-  { key: 'pnl',         label: 'P&L',             icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/></svg> },
-  { key: 'timeline',    label: 'Timeline',        icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="17" y1="12" x2="3" y2="12"/><line x1="17" y1="6" x2="3" y2="6"/><line x1="17" y1="18" x2="3" y2="18"/><circle cx="21" cy="6" r="1" fill="currentColor"/><circle cx="21" cy="12" r="1" fill="currentColor"/><circle cx="21" cy="18" r="1" fill="currentColor"/></svg> },
-  { key: 'leaderboard', label: 'Leaderboard',     icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="18 15 12 9 6 15"/></svg> },
+  { key: 'dashboard',  label: 'Dashboard',  icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg> },
+  { key: 'pipeline',   label: 'Pipeline',   icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="12" rx="1"/></svg> },
+  { key: 'analytics',  label: 'Analytics',  icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> },
+  { key: 'top-parts',  label: 'Top Parts',  icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="18 15 12 9 6 15"/></svg> },
+  { key: 'agent',      label: 'Agent',      icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M9 11V7a3 3 0 0 1 6 0v4"/><circle cx="9" cy="16" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="16" r="1" fill="currentColor" stroke="none"/><path d="M12 3v2"/><path d="M8 3l1 1.5"/><path d="M16 3l-1 1.5"/></svg> },
 ]
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -242,6 +247,12 @@ export default function ContractsPage() {
   const [bids, setBids] = useState<Bid[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('dashboard')
+
+  // Agent state
+  const [agentMessages, setAgentMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
+  const [agentFollowUps, setAgentFollowUps] = useState<string[]>([])
+  const [agentInput, setAgentInput] = useState('')
+  const [agentLoading, setAgentLoading] = useState(false)
 
   useEffect(() => {
     fetch('/api/bids').then(r => r.json()).then(data => { setBids(data); setLoading(false) })
@@ -258,19 +269,18 @@ export default function ContractsPage() {
   const won = bids.filter(b => b.status === 'WON')
   const waiting = bids.filter(b => b.status === 'WAITING')
   const lost = bids.filter(b => b.status === 'LOST')
-  const winRate = bids.length ? Math.round((won.length / bids.filter(b => b.status !== 'WAITING').length) * 100) : 0
+  const decided = won.length + lost.length
+  const winRate = decided ? Math.round((won.length / decided) * 100) : 0
   const totalProfit = won.reduce((s, b) => s + b.unitProfit * b.quantity, 0)
   const pipelineValue = waiting.reduce((s, b) => s + b.unitSell * b.quantity, 0)
 
-  const winRateData = buildWinRate(bids)
-  const pipelineData = buildPipeline(bids)
-  const supplierData = buildSupplierWinRate(bids)
-  const lostByData = buildAvgLostBy(bids)
-  const catalogData = buildPartsCatalog(bids)
-  const marginData = buildMarginAnalysis(bids)
-  const pnlData = buildPnL(bids)
-  const timelineData = buildTimeline(bids)
-  const leaderboardData = buildLeaderboard(bids)
+  const winRateData      = buildWinRate(bids)
+  const supplierData     = buildSupplierWinRate(bids)
+  const lostByData       = buildAvgLostBy(bids)
+  const marginData       = buildMarginByMonth(bids)
+  const markupRangeData  = buildMarkupWinRate(bids)
+  const recentActivity   = buildRecentActivity(bids)
+  const topPartsData     = buildTopParts(bids)
 
   return (
     <div className="flex flex-col gap-6">
@@ -280,12 +290,12 @@ export default function ContractsPage() {
       </div>
 
       {/* Tab bar */}
-      <div className="flex border-b overflow-x-auto" style={{ borderColor: 'var(--border)' }}>
+      <div className="flex border-b" style={{ borderColor: 'var(--border)' }}>
         {TABS.map(t => {
           const active = tab === t.key
           return (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className="flex items-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors relative whitespace-nowrap flex-shrink-0"
+              className="flex items-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors relative whitespace-nowrap"
               style={{ color: active ? 'var(--text)' : 'var(--text-muted)' }}>
               {t.icon}{t.label}
               {active && <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t" style={{ background: 'var(--highlight-blue-text)' }} />}
@@ -300,13 +310,12 @@ export default function ContractsPage() {
           {/* ── DASHBOARD ── */}
           {tab === 'dashboard' && (
             <div className="flex flex-col gap-6">
-              {/* KPI row */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                  { label: 'Win Rate',       value: `${winRate}%`,         sub: `${won.length} of ${won.length + lost.length} decided`, accent: '#16a34a' },
-                  { label: 'Total Profit',   value: fmtK(totalProfit),     sub: `across ${won.length} won contracts`,                   accent: '#2563eb' },
-                  { label: 'Pipeline Value', value: fmtK(pipelineValue),   sub: `${waiting.length} bids pending`,                       accent: '#c2410c' },
-                  { label: 'Total Bids',     value: String(bids.length),   sub: `${won.length}W · ${waiting.length}P · ${lost.length}L`, accent: 'var(--text)' },
+                  { label: 'Win Rate',       value: `${winRate}%`,       sub: `${won.length} of ${decided} decided`,                    accent: '#16a34a' },
+                  { label: 'Total Profit',   value: fmtK(totalProfit),   sub: `across ${won.length} won contracts`,                     accent: '#2563eb' },
+                  { label: 'Pipeline Value', value: fmtK(pipelineValue), sub: `${waiting.length} bids pending`,                         accent: '#c2410c' },
+                  { label: 'Total Bids',     value: String(bids.length), sub: `${won.length}W · ${waiting.length}P · ${lost.length}L`,  accent: 'var(--text)' },
                 ].map(k => (
                   <div key={k.label} className="rounded-xl border p-4 flex flex-col gap-1" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
                     <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>{k.label}</span>
@@ -315,7 +324,6 @@ export default function ContractsPage() {
                   </div>
                 ))}
               </div>
-              {/* Win rate + recent */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="rounded-xl border p-4 flex flex-col gap-3" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
                   <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Win Rate Over Time</span>
@@ -324,7 +332,7 @@ export default function ContractsPage() {
                       <defs><linearGradient id="dg-wr" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#16a34a" stopOpacity={0.15}/><stop offset="95%" stopColor="#16a34a" stopOpacity={0}/></linearGradient></defs>
                       <CartesianGrid vertical={false} stroke="var(--border)" />
                       <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} width={32} tickFormatter={v => `${v}%`} domain={[0,100]} />
+                      <YAxis tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} width={32} tickFormatter={v => `${v}%`} domain={[0, 100]} />
                       <Tooltip {...TOOLTIP_STYLE} formatter={(v: any) => [`${v}%`, 'Win Rate']} />
                       <Area type="monotone" dataKey="rate" stroke="#16a34a" strokeWidth={2} fill="url(#dg-wr)" dot={false} />
                     </AreaChart>
@@ -332,14 +340,18 @@ export default function ContractsPage() {
                 </div>
                 <div className="rounded-xl border p-4 flex flex-col gap-3" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
                   <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Recent Activity</span>
-                  <div className="flex flex-col gap-2">
-                    {timelineData.slice(0, 6).map(bid => (
+                  <div className="flex flex-col gap-2.5">
+                    {recentActivity.slice(0, 7).map(bid => (
                       <div key={bid.id} className="flex items-center justify-between gap-2 text-xs">
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: bid.status === 'WON' ? '#16a34a' : bid.status === 'WAITING' ? '#c2410c' : '#dc2626' }} />
                           <span className="font-mono truncate" style={{ color: 'var(--text)' }}>{bid.partNumber}</span>
+                          <span className="truncate hidden sm:block" style={{ color: 'var(--text-faint)' }}>{bid.description}</span>
                         </div>
-                        <span style={{ color: 'var(--text-faint)' }}>{new Date(bid.bidDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="font-semibold" style={{ color: bid.status === 'WON' ? '#16a34a' : bid.status === 'WAITING' ? '#c2410c' : '#dc2626' }}>{bid.status}</span>
+                          <span style={{ color: 'var(--text-faint)' }}>{new Date(bid.bidDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -348,8 +360,8 @@ export default function ContractsPage() {
             </div>
           )}
 
-          {/* ── KANBAN ── */}
-          {tab === 'kanban' && (
+          {/* ── PIPELINE ── */}
+          {tab === 'pipeline' && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
               {COLUMNS.map(col => {
                 const colBids = bids.filter(b => b.status === col.status)
@@ -371,209 +383,118 @@ export default function ContractsPage() {
             </div>
           )}
 
-          {/* ── CHARTS ── */}
-          {tab === 'charts' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="rounded-xl border p-4 flex flex-col gap-3" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-                <div><span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Win Rate Over Time</span><p className="text-xs" style={{ color: 'var(--text-faint)' }}>% of bids won per week</p></div>
-                <ResponsiveContainer width="100%" height={150}>
-                  <AreaChart data={winRateData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                    <defs><linearGradient id="cg-wr" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#16a34a" stopOpacity={0.15}/><stop offset="95%" stopColor="#16a34a" stopOpacity={0}/></linearGradient></defs>
-                    <CartesianGrid vertical={false} stroke="var(--border)" />
-                    <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} width={32} tickFormatter={v => `${v}%`} domain={[0,100]} />
-                    <Tooltip {...TOOLTIP_STYLE} formatter={(v: any) => [`${v}%`, 'Win Rate']} />
-                    <Area type="monotone" dataKey="rate" stroke="#16a34a" strokeWidth={2} fill="url(#cg-wr)" dot={false} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="rounded-xl border p-4 flex flex-col gap-3" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-                <div><span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Pipeline Value</span><p className="text-xs" style={{ color: 'var(--text-faint)' }}>Won / Waiting / Lost by week</p></div>
-                <ResponsiveContainer width="100%" height={150}>
-                  <BarChart data={pipelineData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barSize={12}>
-                    <CartesianGrid vertical={false} stroke="var(--border)" />
-                    <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} width={40} tickFormatter={v => fmtK(v)} />
-                    <Tooltip {...TOOLTIP_STYLE} formatter={(v: any) => [fmtK(Number(v))]} />
-                    <Bar dataKey="won" stackId="a" fill="#16a34a" /><Bar dataKey="waiting" stackId="a" fill="#f59e0b" /><Bar dataKey="lost" stackId="a" fill="#dc2626" radius={[4,4,0,0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-                <div className="flex gap-4">{[['Won','#16a34a'],['Waiting','#f59e0b'],['Lost','#dc2626']].map(([l,c])=><div key={l} className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm" style={{ background: c }}/><span className="text-xs" style={{ color: 'var(--text-faint)' }}>{l}</span></div>)}</div>
-              </div>
-              <div className="rounded-xl border p-4 flex flex-col gap-3" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-                <div><span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Avg Lost-By Amount</span><p className="text-xs" style={{ color: 'var(--text-faint)' }}>How close your losing bids are</p></div>
-                <ResponsiveContainer width="100%" height={150}>
-                  <BarChart data={lostByData} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-                    <CartesianGrid horizontal={false} stroke="var(--border)" />
-                    <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} width={55} />
-                    <Tooltip {...TOOLTIP_STYLE} formatter={(v: any) => [`$${v}`, 'Avg Lost By']} />
-                    <Bar dataKey="avg" fill="#dc2626" radius={[0,4,4,0]} barSize={18}>{lostByData.map((_,i)=><Cell key={i} fill="#dc2626" fillOpacity={0.7+i*0.1}/>)}</Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="rounded-xl border p-4 flex flex-col gap-3" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-                <div><span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Supplier Win Rate</span><p className="text-xs" style={{ color: 'var(--text-faint)' }}>Which supplier wins you the most</p></div>
-                <ResponsiveContainer width="100%" height={150}>
-                  <BarChart data={supplierData} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-                    <CartesianGrid horizontal={false} stroke="var(--border)" />
-                    <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} domain={[0,100]} />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} width={55} />
-                    <Tooltip {...TOOLTIP_STYLE} formatter={(v: any) => [`${v}%`, 'Win Rate']} />
-                    <Bar dataKey="rate" radius={[0,4,4,0]} barSize={18}>{supplierData.map((_,i)=><Cell key={i} fill="#2563eb" fillOpacity={0.6+i*0.15}/>)}</Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          )}
-
-          {/* ── PARTS CATALOG ── */}
-          {tab === 'catalog' && (
-            <div className="flex flex-col gap-3">
-              <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)' }}>
-                      {['Part Number', 'Description', 'Bids', 'Wins', 'Win Rate', 'Avg Profit/Unit', 'Avg Markup'].map(h => (
-                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {catalogData.map((p, i) => (
-                      <tr key={p.partNumber} style={{ borderBottom: i < catalogData.length - 1 ? '1px solid var(--border)' : undefined, background: 'var(--bg)' }}>
-                        <td className="px-4 py-3 font-mono font-semibold text-xs" style={{ color: 'var(--text)' }}>{p.partNumber}</td>
-                        <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{p.description ?? '—'}</td>
-                        <td className="px-4 py-3 text-xs font-semibold" style={{ color: 'var(--text)' }}>{p.bids}</td>
-                        <td className="px-4 py-3 text-xs font-semibold" style={{ color: '#16a34a' }}>{p.wins}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--border)', maxWidth: 60 }}>
-                              <div className="h-full rounded-full" style={{ width: `${p.winRate}%`, background: p.winRate >= 60 ? '#16a34a' : p.winRate >= 30 ? '#f59e0b' : '#dc2626' }} />
-                            </div>
-                            <span className="text-xs font-semibold" style={{ color: p.winRate >= 60 ? '#16a34a' : p.winRate >= 30 ? '#f59e0b' : '#dc2626' }}>{p.winRate}%</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-xs font-semibold" style={{ color: 'var(--text)' }}>{p.avgProfit != null ? `$${fmt(p.avgProfit)}` : '—'}</td>
-                        <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>{p.avgMarkup}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* ── MARGIN ANALYSIS ── */}
-          {tab === 'margin' && (
+          {/* ── ANALYTICS ── */}
+          {tab === 'analytics' && (
             <div className="flex flex-col gap-4">
-              <div className="rounded-xl border p-4 flex flex-col gap-3" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-                <div><span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Markup % vs Outcome</span><p className="text-xs" style={{ color: 'var(--text-faint)' }}>Each dot is a bid — find your winning markup sweet spot</p></div>
-                <ResponsiveContainer width="100%" height={280}>
-                  <ScatterChart margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
-                    <CartesianGrid stroke="var(--border)" />
-                    <XAxis type="number" dataKey="markup" name="Markup" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} label={{ value: 'Markup %', position: 'insideBottom', offset: -4, fontSize: 11, fill: 'var(--text-faint)' }} />
-                    <YAxis type="number" dataKey="won" name="Outcome" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} ticks={[0, 1]} tickFormatter={v => v === 1 ? 'Won' : 'Lost'} width={36} />
-                    <Tooltip {...TOOLTIP_STYLE} formatter={(v: any, name: string) => [name === 'Markup' ? `${v}%` : v === 1 ? 'Won' : 'Lost', name]} />
-                    <Scatter data={marginData}>
-                      {marginData.map((d, i) => <Cell key={i} fill={d.status === 'WON' ? '#16a34a' : '#dc2626'} fillOpacity={0.7} />)}
-                    </Scatter>
-                  </ScatterChart>
-                </ResponsiveContainer>
-                <div className="flex gap-4">{[['Won','#16a34a'],['Lost','#dc2626']].map(([l,c])=><div key={l} className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: c }}/><span className="text-xs" style={{ color: 'var(--text-faint)' }}>{l}</span></div>)}</div>
-              </div>
-              <div className="rounded-xl border p-4 flex flex-col gap-3" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-                <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Win Rate by Markup Range</span>
-                <ResponsiveContainer width="100%" height={160}>
-                  <BarChart data={(() => {
-                    const ranges: Record<string, { won: number; total: number }> = { '0–15%': {won:0,total:0}, '16–18%': {won:0,total:0}, '19–20%': {won:0,total:0}, '21–25%': {won:0,total:0}, '26–30%': {won:0,total:0} }
-                    for (const d of marginData) {
-                      const key = d.markup <= 15 ? '0–15%' : d.markup <= 18 ? '16–18%' : d.markup <= 20 ? '19–20%' : d.markup <= 25 ? '21–25%' : '26–30%'
-                      ranges[key].total++
-                      if (d.won) ranges[key].won++
-                    }
-                    return Object.entries(ranges).filter(([,v]) => v.total > 0).map(([range, v]) => ({ range, rate: Math.round((v.won/v.total)*100) }))
-                  })()} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                    <CartesianGrid vertical={false} stroke="var(--border)" />
-                    <XAxis dataKey="range" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} width={32} tickFormatter={v => `${v}%`} domain={[0,100]} />
-                    <Tooltip {...TOOLTIP_STYLE} formatter={(v: any) => [`${v}%`, 'Win Rate']} />
-                    <Bar dataKey="rate" radius={[4,4,0,0]} barSize={28}>{[0,1,2,3,4].map(i=><Cell key={i} fill="#2563eb" fillOpacity={0.6+i*0.1}/>)}</Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          )}
-
-          {/* ── P&L ── */}
-          {tab === 'pnl' && (
-            <div className="flex flex-col gap-4">
-              <div className="grid grid-cols-3 gap-4">
-                {[
-                  { label: 'Total Revenue', value: fmtK(won.reduce((s,b) => s + b.unitSell * b.quantity, 0)), color: '#2563eb' },
-                  { label: 'Total Cost',    value: fmtK(won.reduce((s,b) => s + b.unitCost * b.quantity, 0)), color: '#f59e0b' },
-                  { label: 'Total Profit',  value: fmtK(totalProfit), color: '#16a34a' },
-                ].map(k => (
-                  <div key={k.label} className="rounded-xl border p-4 flex flex-col gap-1" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-                    <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>{k.label}</span>
-                    <span className="text-2xl font-bold" style={{ color: k.color }}>{k.value}</span>
+              {/* Row 1: Win rate trend + Monthly gross margin */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-xl border p-4 flex flex-col gap-3" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+                  <div>
+                    <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Win Rate Over Time</span>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-faint)' }}>% of bids won per week</p>
                   </div>
-                ))}
-              </div>
-              <div className="rounded-xl border p-4 flex flex-col gap-3" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-                <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Monthly Revenue / Cost / Profit</span>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={pnlData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barCategoryGap="30%">
-                    <CartesianGrid vertical={false} stroke="var(--border)" />
-                    <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} width={44} tickFormatter={v => fmtK(v)} />
-                    <Tooltip {...TOOLTIP_STYLE} formatter={(v: any) => [fmtK(Number(v))]} />
-                    <Bar dataKey="revenue" fill="#2563eb" radius={[4,4,0,0]} barSize={18} />
-                    <Bar dataKey="cost" fill="#f59e0b" radius={[4,4,0,0]} barSize={18} />
-                    <Bar dataKey="profit" fill="#16a34a" radius={[4,4,0,0]} barSize={18} />
-                  </BarChart>
-                </ResponsiveContainer>
-                <div className="flex gap-4">{[['Revenue','#2563eb'],['Cost','#f59e0b'],['Profit','#16a34a']].map(([l,c])=><div key={l} className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm" style={{ background: c }}/><span className="text-xs" style={{ color: 'var(--text-faint)' }}>{l}</span></div>)}</div>
-              </div>
-            </div>
-          )}
-
-          {/* ── TIMELINE ── */}
-          {tab === 'timeline' && (
-            <div className="flex flex-col gap-0 relative">
-              <div className="absolute left-[19px] top-0 bottom-0 w-px" style={{ background: 'var(--border)' }} />
-              {timelineData.map((bid, i) => (
-                <div key={bid.id} className="flex gap-4 pb-5 relative">
-                  <div className="w-10 flex-shrink-0 flex items-start justify-center pt-1">
-                    <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center z-10" style={{ background: 'var(--bg)', borderColor: bid.status === 'WON' ? '#16a34a' : bid.status === 'WAITING' ? '#c2410c' : '#dc2626' }}>
-                      <div className="w-2 h-2 rounded-full" style={{ background: bid.status === 'WON' ? '#16a34a' : bid.status === 'WAITING' ? '#c2410c' : '#dc2626' }} />
-                    </div>
-                  </div>
-                  <div className="flex-1 rounded-xl border p-3 flex items-start justify-between gap-4" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-                    <div className="flex flex-col gap-0.5 min-w-0">
-                      <span className="font-mono font-semibold text-sm" style={{ color: 'var(--text)' }}>{bid.partNumber}</span>
-                      {bid.description && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{bid.description}</span>}
-                      <span className="text-xs" style={{ color: 'var(--text-faint)' }}>{bid.supplierName}</span>
-                    </div>
-                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                      <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                        style={{ background: bid.status === 'WON' ? 'var(--highlight-green)' : bid.status === 'WAITING' ? '#fff7ed' : '#fef2f2', color: bid.status === 'WON' ? '#16a34a' : bid.status === 'WAITING' ? '#c2410c' : '#dc2626' }}>
-                        {bid.status}
-                      </span>
-                      <span className="text-xs" style={{ color: 'var(--text-faint)' }}>{new Date(bid.bidDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                    </div>
-                  </div>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <AreaChart data={winRateData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                      <defs><linearGradient id="ag-wr" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#16a34a" stopOpacity={0.15}/><stop offset="95%" stopColor="#16a34a" stopOpacity={0}/></linearGradient></defs>
+                      <CartesianGrid vertical={false} stroke="var(--border)" />
+                      <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} width={32} tickFormatter={v => `${v}%`} domain={[0, 100]} />
+                      <Tooltip {...TOOLTIP_STYLE} formatter={(v: any) => [`${v}%`, 'Win Rate']} />
+                      <Area type="monotone" dataKey="rate" stroke="#16a34a" strokeWidth={2} fill="url(#ag-wr)" dot={false} />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
-              ))}
+                <div className="rounded-xl border p-4 flex flex-col gap-3" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+                  <div>
+                    <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Monthly Gross Margin</span>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-faint)' }}>Revenue, cost, and profit on won bids</p>
+                  </div>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <LineChart data={marginData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                      <CartesianGrid vertical={false} stroke="var(--border)" />
+                      <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} width={44} tickFormatter={v => fmtK(v)} />
+                      <Tooltip {...TOOLTIP_STYLE} formatter={(v: any) => [fmtK(Number(v))]} />
+                      <Line type="monotone" dataKey="revenue" stroke="#2563eb" strokeWidth={2} dot={{ r: 3, fill: '#2563eb' }} activeDot={{ r: 5 }} />
+                      <Line type="monotone" dataKey="cost"    stroke="#f59e0b" strokeWidth={2} dot={{ r: 3, fill: '#f59e0b' }} activeDot={{ r: 5 }} />
+                      <Line type="monotone" dataKey="profit"  stroke="#16a34a" strokeWidth={2} dot={{ r: 3, fill: '#16a34a' }} activeDot={{ r: 5 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                  <div className="flex gap-4">{[['Revenue','#2563eb'],['Cost','#f59e0b'],['Profit','#16a34a']].map(([l,c])=><div key={l} className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm" style={{ background: c }}/><span className="text-xs" style={{ color: 'var(--text-faint)' }}>{l}</span></div>)}</div>
+                </div>
+              </div>
+
+              {/* Row 2: Supplier win rate + Avg lost-by */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-xl border p-4 flex flex-col gap-3" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+                  <div>
+                    <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Supplier Win Rate</span>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-faint)' }}>Which supplier quotes win you the most</p>
+                  </div>
+                  <ResponsiveContainer width="100%" height={140}>
+                    <BarChart data={supplierData} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                      <CartesianGrid horizontal={false} stroke="var(--border)" />
+                      <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} domain={[0, 100]} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} width={55} />
+                      <Tooltip {...TOOLTIP_STYLE} formatter={(v: any) => [`${v}%`, 'Win Rate']} />
+                      <Bar dataKey="rate" barSize={18}
+                        shape={(props: any) => <rect x={props.x} y={props.y} width={props.width} height={props.height} fill="#2563eb" fillOpacity={0.6 + props.index * 0.15} rx={4} />}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="rounded-xl border p-4 flex flex-col gap-3" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+                  <div>
+                    <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Avg Lost-By Amount</span>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-faint)' }}>How close your losing bids are — lower is better</p>
+                  </div>
+                  <ResponsiveContainer width="100%" height={140}>
+                    <BarChart data={lostByData} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+                      <CartesianGrid horizontal={false} stroke="var(--border)" />
+                      <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} width={55} />
+                      <Tooltip {...TOOLTIP_STYLE} formatter={(v: any) => [`$${v}`, 'Avg Lost By']} />
+                      <Bar dataKey="avg" barSize={18}
+                        shape={(props: any) => <rect x={props.x} y={props.y} width={props.width} height={props.height} fill="#dc2626" fillOpacity={0.65 + props.index * 0.1} rx={4} />}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Row 3: Markup sweet spot */}
+              <div className="rounded-xl border p-4 flex flex-col gap-3" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+                <div>
+                  <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Win Rate by Markup Range</span>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-faint)' }}>Find your pricing sweet spot — where you win most often</p>
+                </div>
+                <ResponsiveContainer width="100%" height={160}>
+                  <BarChart data={markupRangeData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                    <CartesianGrid vertical={false} stroke="var(--border)" />
+                    <XAxis dataKey="range" tick={{ fontSize: 11, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: 'var(--text-faint)' }} axisLine={false} tickLine={false} width={32} tickFormatter={v => `${v}%`} domain={[0, 100]} />
+                    <Tooltip {...TOOLTIP_STYLE} formatter={(v: any, _: any, p: any) => [`${v}% win rate (${p.payload.total} bids)`, 'Rate']} />
+                    <Bar dataKey="rate" barSize={36}
+                      shape={(props: any) => {
+                        const fill = props.rate >= 70 ? '#16a34a' : props.rate >= 40 ? '#2563eb' : '#dc2626'
+                        return <rect x={props.x} y={props.y} width={props.width} height={props.height} fill={fill} fillOpacity={0.85} rx={4} />
+                      }}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+                <div className="flex gap-4">{[['≥70% win rate','#16a34a'],['40–69%','#2563eb'],['<40%','#dc2626']].map(([l,c])=><div key={l} className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm" style={{ background: c }}/><span className="text-xs" style={{ color: 'var(--text-faint)' }}>{l}</span></div>)}</div>
+              </div>
             </div>
           )}
 
-          {/* ── LEADERBOARD ── */}
-          {tab === 'leaderboard' && (
+          {/* ── TOP PARTS ── */}
+          {tab === 'top-parts' && (
             <div className="flex flex-col gap-3">
-              {leaderboardData.map((bid, i) => (
+              <p className="text-xs" style={{ color: 'var(--text-faint)' }}>Top 10 won bids ranked by total profit generated.</p>
+              {topPartsData.map((bid, i) => (
                 <div key={bid.id} className="rounded-xl border p-4 flex items-center gap-4" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-                  <span className="text-2xl font-bold w-8 text-center flex-shrink-0" style={{ color: i === 0 ? '#f59e0b' : i === 1 ? '#9ca3af' : i === 2 ? '#c2410c' : 'var(--text-faint)' }}>
+                  <span className="text-2xl font-bold w-8 text-center flex-shrink-0"
+                    style={{ color: i === 0 ? '#f59e0b' : i === 1 ? '#9ca3af' : i === 2 ? '#c2410c' : 'var(--text-faint)' }}>
                     {i + 1}
                   </span>
                   <div className="flex flex-col gap-0.5 flex-1 min-w-0">
@@ -586,6 +507,149 @@ export default function ContractsPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* ── AGENT ── */}
+          {tab === 'agent' && (
+            <div className="flex flex-col gap-4">
+              {/* Header */}
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--highlight-blue)' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--highlight-blue-text)" strokeWidth="2">
+                    <rect x="3" y="11" width="18" height="10" rx="2"/>
+                    <path d="M9 11V7a3 3 0 0 1 6 0v4"/>
+                    <circle cx="9" cy="16" r="1" fill="currentColor" stroke="none"/>
+                    <circle cx="15" cy="16" r="1" fill="currentColor" stroke="none"/>
+                    <path d="M12 3v2"/><path d="M8 3l1 1.5"/><path d="M16 3l-1 1.5"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text)' }}>Sales Intelligence Agent</p>
+                  <p className="text-xs" style={{ color: 'var(--text-faint)' }}>Ask anything about your pipeline, pricing, or win rate</p>
+                </div>
+              </div>
+
+              {/* Suggested prompts — only shown before first message */}
+              {agentMessages.length === 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {[
+                    'Why am I losing bids?',
+                    'Which parts should I reprice?',
+                    'Which supplier wins me the most?',
+                    'What should I focus on this week?',
+                  ].map(prompt => (
+                    <button key={prompt} onClick={() => setAgentInput(prompt)}
+                      className="text-left px-4 py-3 rounded-xl border text-sm transition-colors hover:opacity-80"
+                      style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Message thread */}
+              {agentMessages.length > 0 && (
+                <div className="flex flex-col gap-4">
+                  {agentMessages.map((msg, i) => (
+                    <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                      <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold"
+                        style={{ background: msg.role === 'user' ? 'var(--highlight-blue)' : 'var(--bg-surface)', color: msg.role === 'user' ? 'var(--highlight-blue-text)' : 'var(--text-muted)', border: '1px solid var(--border)' }}>
+                        {msg.role === 'user' ? 'Y' : (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="3" y="11" width="18" height="10" rx="2"/>
+                            <path d="M9 11V7a3 3 0 0 1 6 0v4"/>
+                            <circle cx="9" cy="16" r="1" fill="currentColor" stroke="none"/>
+                            <circle cx="15" cy="16" r="1" fill="currentColor" stroke="none"/>
+                          </svg>
+                        )}
+                      </div>
+                      <div className="flex-1 max-w-[85%]">
+                        <div className="rounded-xl px-4 py-3 text-sm"
+                          style={{
+                            background: msg.role === 'user' ? 'var(--highlight-blue)' : 'var(--bg-surface)',
+                            color: msg.role === 'user' ? 'var(--highlight-blue-text)' : 'var(--text)',
+                            border: msg.role === 'assistant' ? '1px solid var(--border)' : 'none',
+                          }}>
+                          {msg.role === 'assistant' ? renderMarkdown(msg.content) : msg.content}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {agentLoading && (
+                    <div className="flex gap-3">
+                      <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2">
+                          <rect x="3" y="11" width="18" height="10" rx="2"/>
+                          <path d="M9 11V7a3 3 0 0 1 6 0v4"/>
+                          <circle cx="9" cy="16" r="1" fill="currentColor" stroke="none"/>
+                          <circle cx="15" cy="16" r="1" fill="currentColor" stroke="none"/>
+                        </svg>
+                      </div>
+                      <div className="rounded-xl px-4 py-3 text-sm flex items-center gap-1.5" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
+                        <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: 'var(--text-faint)', animationDelay: '0ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: 'var(--text-faint)', animationDelay: '150ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: 'var(--text-faint)', animationDelay: '300ms' }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Follow-up suggestions */}
+              {!agentLoading && agentFollowUps.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {agentFollowUps.map(q => (
+                    <button key={q} onClick={() => setAgentInput(q)}
+                      className="px-3 py-1.5 rounded-full border text-xs transition-opacity hover:opacity-70"
+                      style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Input */}
+              <form
+                onSubmit={async e => {
+                  e.preventDefault()
+                  const text = agentInput.trim()
+                  if (!text || agentLoading) return
+                  const next = [...agentMessages, { role: 'user' as const, content: text }]
+                  setAgentMessages(next)
+                  setAgentInput('')
+                  setAgentFollowUps([])
+                  setAgentLoading(true)
+                  try {
+                    const res = await fetch('/api/agent', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ messages: next }),
+                    })
+                    const data = await res.json()
+                    setAgentMessages(prev => [...prev, { role: 'assistant', content: data.reply }])
+                    setAgentFollowUps(data.followUps ?? [])
+                  } finally {
+                    setAgentLoading(false)
+                  }
+                }}
+                className="flex gap-2 items-end"
+              >
+                <textarea
+                  rows={1}
+                  value={agentInput}
+                  onChange={e => setAgentInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.currentTarget.form?.requestSubmit() } }}
+                  placeholder="Ask about your pipeline, pricing, win rate..."
+                  className="flex-1 rounded-xl border px-4 py-3 text-sm outline-none resize-none"
+                  style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text)', minHeight: 48 }}
+                />
+                <button type="submit" disabled={!agentInput.trim() || agentLoading}
+                  className="px-4 py-3 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-40"
+                  style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)', minHeight: 48 }}>
+                  Send
+                </button>
+              </form>
             </div>
           )}
         </>
