@@ -50,9 +50,14 @@ After your response, on a new line write exactly: FOLLOWUPS: then a JSON array o
   if (content.type !== 'text') throw new Error('Unexpected response type')
 
   const raw = content.text
-  const followupsMatch = raw.match(/FOLLOWUPS:\s*(\[.*?\])\s*$/s)
-  const followUps: string[] = followupsMatch ? JSON.parse(followupsMatch[1]) : []
-  const reply = raw.replace(/\nFOLLOWUPS:.*$/s, '').trim()
+  const followupsIndex = raw.lastIndexOf('FOLLOWUPS:')
+  let reply = raw
+  let followUps: string[] = []
+  if (followupsIndex !== -1) {
+    const followupsRaw = raw.slice(followupsIndex + 'FOLLOWUPS:'.length).trim()
+    try { followUps = JSON.parse(followupsRaw) } catch { followUps = [] }
+    reply = raw.slice(0, followupsIndex).trim()
+  }
 
   return NextResponse.json({ reply, followUps })
 }
