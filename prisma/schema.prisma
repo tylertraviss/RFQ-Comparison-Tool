@@ -34,3 +34,26 @@ model LineItem {
   leadTimeDays Int?
   notes        String?
 }
+
+model Bid {
+  id           String    @id @default(cuid())
+  partNumber   String
+  description  String?
+  supplierName String
+  unitCost     Float
+  unitSell     Float
+  unitProfit   Float
+  quantity     Int
+  leadTimeDays Int?
+  markup       Float
+  status       BidStatus @default(WAITING)
+  lostBy       Float?
+  bidDate      DateTime  @default(now())
+  sessionId    String?
+}
+
+enum BidStatus {
+  WAITING
+  WON
+  LOST
+}

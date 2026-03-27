@@ -67,6 +67,30 @@ function BidModal({ target, onClose }: { target: BidTarget; onClose: () => void 
   const [markup, setMarkup] = useState(18)
   const [leadTime, setLeadTime] = useState(String(target.leadTime ?? ''))
   const [qty, setQty] = useState('1')
+  const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+
+  async function handleSubmit() {
+    setSubmitting(true)
+    await fetch('/api/bids', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        partNumber: target.part.part_number,
+        description: target.part.description ?? null,
+        supplierName: target.supplier,
+        unitCost: target.unitCost,
+        unitSell: unitSell,
+        unitProfit: unitProfit,
+        quantity: qtyNum,
+        leadTimeDays: parseInt(leadTime) || null,
+        markup,
+        status: 'WAITING',
+      }),
+    })
+    setSubmitting(false)
+    setSubmitted(true)
+  }
 
   const unitCost = target.unitCost
   const unitSell = unitCost * (1 + markup / 100)
@@ -223,10 +247,12 @@ function BidModal({ target, onClose }: { target: BidTarget; onClose: () => void 
               Based on {target.supplier} quote{leadTime ? ` · ${leadTime} day delivery` : ''}
             </p>
             <button
-              className="w-full rounded-xl py-3 font-bold text-sm transition-opacity hover:opacity-90"
-              style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}
+              onClick={handleSubmit}
+              disabled={submitting || submitted}
+              className="w-full rounded-xl py-3 font-bold text-sm transition-opacity hover:opacity-90 disabled:opacity-60"
+              style={{ background: submitted ? '#16a34a' : 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}
             >
-              Submit Bid to DLA →
+              {submitted ? '✓ Bid submitted — tracking in Contracts' : submitting ? 'Submitting...' : 'Submit Bid to DLA →'}
             </button>
           </div>
         </div>
