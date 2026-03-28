@@ -22,7 +22,7 @@ export default function SessionHistory({ sessions }: Props) {
       >
         <p className="text-sm" style={{ color: 'var(--text-faint)' }}>
           No sessions yet.{' '}
-          <Link href="/rfq/new" style={{ color: 'var(--text)', fontWeight: 600 }} className="hover:underline">
+          <Link href="/quotes/new" style={{ color: 'var(--text)', fontWeight: 600 }} className="hover:underline">
             Start your first RFQ →
           </Link>
         </p>
@@ -35,7 +35,7 @@ export default function SessionHistory({ sessions }: Props) {
       {sessions.map((session, i) => (
         <Link
           key={session.id}
-          href={`/rfq/${session.id}`}
+          href={`/quotes/${session.id}`}
           className="flex items-center justify-between px-5 py-4 transition-colors no-underline"
           style={{
             background: 'var(--bg)',

@@ -2,10 +2,13 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import ComparisonTableServer from './ComparisonTableServer'
+import IntelLoader from './IntelLoader'
+import NegotiationSummary from '@/components/NegotiationSummary'
+import type { Intel } from '@/components/NegotiationSummary'
 
 export const dynamic = 'force-dynamic'
 
-export default async function RFQSessionPage({
+export default async function QuoteSessionPage({
   params,
 }: {
   params: Promise<{ id: string }>
@@ -55,13 +58,18 @@ export default async function RFQSessionPage({
           </p>
         </div>
         <Link
-          href="/"
+          href="/quotes"
           className="text-sm no-underline hover:underline"
           style={{ color: '#64748b' }}
         >
-          ← All sessions
+          ← All RFQs
         </Link>
       </div>
+
+      {session.intelJson
+        ? <NegotiationSummary intel={session.intelJson as unknown as Intel} loading={false} />
+        : <IntelLoader results={results} />
+      }
 
       <ComparisonTableServer results={results} sessionName={session.name} />
     </div>

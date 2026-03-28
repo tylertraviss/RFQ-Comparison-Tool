@@ -23,7 +23,7 @@ export default function BulletDetail({ bullet, context, accent }: Props) {
   async function fetchDetail() {
     setLoading(true)
     try {
-      const res = await fetch('/api/bullet-detail', {
+      const res = await fetch('/api/brief-detail', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bullet, context }),

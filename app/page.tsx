@@ -33,7 +33,7 @@ export default async function HomePage() {
           </p>
           <div className="flex items-center gap-4">
             <Link
-              href="/rfq/new"
+              href="/quotes/new"
               className="px-6 py-3 rounded-lg font-semibold text-sm transition-colors no-underline"
               style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}
             >
