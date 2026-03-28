@@ -400,7 +400,7 @@ export default function ComparisonTable({ results, onSave, onCSV, saving, saved 
       {bidTarget && <BidModal target={bidTarget} onClose={() => setBidTarget(null)} />}
 
       {/* Save / Export row */}
-      {(onSave || onCSV) && !saved && (
+      {!saved && (
         <div className="flex items-center gap-3 pt-2">
           <button
             onClick={onCSV}
