@@ -67,7 +67,7 @@ export default async function QuoteSessionPage({
       </div>
 
       {session.intelJson
-        ? <NegotiationSummary intel={session.intelJson as Intel} loading={false} />
+        ? <NegotiationSummary intel={session.intelJson as unknown as Intel} loading={false} />
         : <IntelLoader results={results} />
       }
 
