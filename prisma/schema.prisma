@@ -10,6 +10,7 @@ datasource db {
 model RFQSession {
   id        String          @id @default(cuid())
   name      String
+  intelJson Json?
   createdAt DateTime        @default(now())
   quotes    SupplierQuote[]
 }

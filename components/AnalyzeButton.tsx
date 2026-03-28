@@ -22,7 +22,7 @@ export default function AnalyzeButton({ onClick, loading, disabled }: Props) {
       {loading ? (
         <span className="flex items-center justify-center gap-3">
           <span className="inline-block w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--text-faint)', borderTopColor: 'transparent' }} />
-          Extracting line items...
+          Analyzing & saving...
         </span>
       ) : (
         'Analyze Quotes'

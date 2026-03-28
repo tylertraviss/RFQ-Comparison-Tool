@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   AreaChart, Area, BarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -231,22 +232,15 @@ function ContractCard({ bid, onStatusChange }: { bid: Bid; onStatusChange: (id: 
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 
-type Tab = 'dashboard' | 'pipeline' | 'analytics' | 'top-parts' | 'agent'
-
-const TABS: { key: Tab; label: string; icon: React.ReactNode }[] = [
-  { key: 'dashboard',  label: 'Dashboard',  icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg> },
-  { key: 'pipeline',   label: 'Pipeline',   icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="12" rx="1"/></svg> },
-  { key: 'agent',      label: 'Agent',      icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M9 11V7a3 3 0 0 1 6 0v4"/><circle cx="9" cy="16" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="16" r="1" fill="currentColor" stroke="none"/><path d="M12 3v2"/><path d="M8 3l1 1.5"/><path d="M16 3l-1 1.5"/></svg> },
-  { key: 'analytics',  label: 'Analytics',  icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> },
-  { key: 'top-parts',  label: 'Top Parts',  icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="18 15 12 9 6 15"/></svg> },
-]
+type Tab = 'dashboard' | 'pipeline' | 'analytics' | 'agent'
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default function ContractsPage() {
+function DashboardContent() {
+  const searchParams = useSearchParams()
+  const tab = (searchParams.get('tab') as Tab) ?? 'dashboard'
   const [bids, setBids] = useState<Bid[]>([])
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<Tab>('dashboard')
 
   // Agent state
   const [agentMessages, setAgentMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
@@ -255,13 +249,13 @@ export default function ContractsPage() {
   const [agentLoading, setAgentLoading] = useState(false)
 
   useEffect(() => {
-    fetch('/api/bids').then(r => r.json()).then(data => { setBids(data); setLoading(false) })
+    fetch('/api/contracts').then(r => r.json()).then(data => { setBids(data); setLoading(false) })
   }, [])
 
   async function handleStatusChange(id: string, status: BidStatus, lostBy?: number) {
     const body: any = { status }
     if (lostBy != null) body.lostBy = lostBy
-    const res = await fetch(`/api/bids/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    const res = await fetch(`/api/contracts/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     const updated = await res.json()
     setBids(prev => prev.map(b => b.id === updated.id ? updated : b))
   }
@@ -284,26 +278,6 @@ export default function ContractsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--text-faint)' }}>Contracts</span>
-        <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
-      </div>
-
-      {/* Tab bar */}
-      <div className="flex border-b" style={{ borderColor: 'var(--border)' }}>
-        {TABS.map(t => {
-          const active = tab === t.key
-          return (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              className="flex items-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors relative whitespace-nowrap"
-              style={{ color: active ? 'var(--text)' : 'var(--text-muted)' }}>
-              {t.icon}{t.label}
-              {active && <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t" style={{ background: 'var(--highlight-blue-text)' }} />}
-            </button>
-          )
-        })}
-      </div>
-
       {loading && <div className="text-sm" style={{ color: 'var(--text-faint)' }}>Loading...</div>}
       {!loading && (
         <>
@@ -487,29 +461,6 @@ export default function ContractsPage() {
             </div>
           )}
 
-          {/* ── TOP PARTS ── */}
-          {tab === 'top-parts' && (
-            <div className="flex flex-col gap-3">
-              <p className="text-xs" style={{ color: 'var(--text-faint)' }}>Top 10 won bids ranked by total profit generated.</p>
-              {topPartsData.map((bid, i) => (
-                <div key={bid.id} className="rounded-xl border p-4 flex items-center gap-4" style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
-                  <span className="text-2xl font-bold w-8 text-center flex-shrink-0"
-                    style={{ color: i === 0 ? '#f59e0b' : i === 1 ? '#9ca3af' : i === 2 ? '#c2410c' : 'var(--text-faint)' }}>
-                    {i + 1}
-                  </span>
-                  <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                    <span className="font-mono font-semibold text-sm" style={{ color: 'var(--text)' }}>{bid.partNumber}</span>
-                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{bid.description ?? '—'} · {bid.supplierName}</span>
-                  </div>
-                  <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                    <span className="text-lg font-bold" style={{ color: '#16a34a' }}>${fmt(bid.totalProfit)}</span>
-                    <span className="text-xs" style={{ color: 'var(--text-faint)' }}>{bid.quantity} units · {bid.markup}% markup</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
           {/* ── AGENT ── */}
           {tab === 'agent' && (
             <div className="flex flex-col gap-4">
@@ -655,5 +606,13 @@ export default function ContractsPage() {
         </>
       )}
     </div>
+  )
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense>
+      <DashboardContent />
+    </Suspense>
   )
 }

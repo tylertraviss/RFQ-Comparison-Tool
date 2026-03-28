@@ -72,7 +72,7 @@ function BidModal({ target, onClose }: { target: BidTarget; onClose: () => void 
 
   async function handleSubmit() {
     setSubmitting(true)
-    await fetch('/api/bids', {
+    await fetch('/api/contracts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -261,7 +261,7 @@ function BidModal({ target, onClose }: { target: BidTarget; onClose: () => void 
   )
 }
 
-export default function ComparisonTable({ results }: Props) {
+export default function ComparisonTable({ results, onSave, onCSV, saving, saved }: Props) {
   const suppliers = results.map((r) => r.supplier)
   const rows = buildRows(results)
   const scores = computeBestValueScores(results)
@@ -398,6 +398,31 @@ export default function ComparisonTable({ results }: Props) {
       </div>
 
       {bidTarget && <BidModal target={bidTarget} onClose={() => setBidTarget(null)} />}
+
+      {/* Save / Export row */}
+      {(onSave || onCSV) && !saved && (
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            onClick={onCSV}
+            className="px-4 py-2 rounded-lg text-sm font-semibold border transition-opacity hover:opacity-70"
+            style={{ background: 'var(--bg-surface)', borderColor: 'var(--border)', color: 'var(--text-muted)' }}
+          >
+            Export CSV
+          </button>
+          <button
+            onClick={onSave}
+            disabled={saving}
+            className="px-5 py-2 rounded-lg text-sm font-bold transition-opacity hover:opacity-80 disabled:opacity-50"
+            style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}
+          >
+            {saving ? 'Saving...' : 'Save Session →'}
+          </button>
+        </div>
+      )}
+
+      {saved && (
+        <p className="text-sm font-semibold" style={{ color: '#16a34a' }}>✓ Session saved</p>
+      )}
     </div>
   )
 }

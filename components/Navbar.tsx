@@ -18,17 +18,38 @@ export default function Navbar() {
           </span>
         </Link>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <Link
-            href="/contracts"
-            className="px-4 py-2 rounded-lg text-sm font-semibold no-underline transition-opacity hover:opacity-70"
-            style={{ background: 'var(--bg-surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+            href="/dashboard?tab=analytics"
+            className="px-3 py-2 rounded-lg text-sm font-semibold no-underline transition-opacity hover:opacity-70"
+            style={{ color: 'var(--text-muted)' }}
           >
-            Contracts
+            Analytics
           </Link>
           <Link
-            href="/rfq/new"
-            className="px-4 py-2 rounded-lg text-sm font-semibold no-underline transition-opacity hover:opacity-70"
+            href="/dashboard?tab=agent"
+            className="px-3 py-2 rounded-lg text-sm font-semibold no-underline transition-opacity hover:opacity-70"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            Agent
+          </Link>
+          <Link
+            href="/dashboard?tab=pipeline"
+            className="px-3 py-2 rounded-lg text-sm font-semibold no-underline transition-opacity hover:opacity-70"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            Pipeline
+          </Link>
+          <Link
+            href="/dashboard"
+            className="px-3 py-2 rounded-lg text-sm font-semibold no-underline transition-opacity hover:opacity-70"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            Dashboard
+          </Link>
+          <Link
+            href="/quotes"
+            className="ml-2 px-4 py-2 rounded-lg text-sm font-semibold no-underline transition-opacity hover:opacity-70"
             style={{ background: 'var(--btn-primary-bg)', color: 'var(--btn-primary-text)' }}
           >
             RFQs
